@@ -1,0 +1,21 @@
+cat << 'EOF' > .gitignore
+# --- PHẦN CỦA REACT (FRONTEND) ---
+client/node_modules/
+client/dist/
+client/.env
+
+# --- PHẦN CỦA GOLANG (BACKEND) ---
+server/main
+server/*.exe
+server/*.exe~
+server/*.dll
+server/*.so
+server/*.dylib
+server/*.test
+server/*.out
+server/.env
+
+# --- PHẦN CỦA HỆ ĐIỀU HÀNH & EDITOR ---
+.vscode/
+.DS_Store
+EOF
