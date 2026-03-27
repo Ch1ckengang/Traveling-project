@@ -25,8 +25,12 @@ const Profile = () => {
     newPassword: '',
     confirmPassword: ''
   });
+  const [originalData, setOriginalData] = useState({
+    name: '',
+    email: ''
+  });
   
-  const [isEditing, setIsEditing] = useState(false); // Trạng thái chế độ xem/chỉnh sửa
+  const [isEditing, setIsEditing] = useState(true); // Trạng thái chế độ xem/chỉnh sửa
   const [error, setError] = useState(''); // Thông báo lỗi
   const [success, setSuccess] = useState(''); // Thông báo thành công
   const [loading, setLoading] = useState(false); // Trạng thái đang xử lý
@@ -40,13 +44,20 @@ const Profile = () => {
     }
     
     // Set giá trị mặc định cho form từ thông tin user hiện tại
-    setFormData({
+    const nextData = {
       name: user.name || '',
       email: user.email || '',
       currentPassword: '',
       newPassword: '',
       confirmPassword: ''
+    };
+
+    setFormData(nextData);
+    setOriginalData({
+      name: nextData.name,
+      email: nextData.email
     });
+    setIsEditing(true);
   }, [user, navigate]);
 
   /**
@@ -76,14 +87,30 @@ const Profile = () => {
     setError('');
     setSuccess('');
 
+    if (!user?.id) {
+      setError('Không xác định được tài khoản. Vui lòng đăng nhập lại.');
+      return;
+    }
+
+    const cleanedName = formData.name.trim();
+    const cleanedEmail = formData.email.trim();
+
     // VALIDATION
-    if (formData.name.trim() === '') {
+    if (cleanedName === '') {
       setError('Tên không được để trống');
       return;
     }
 
-    if (formData.email.trim() === '') {
+    if (cleanedEmail === '') {
       setError('Email không được để trống');
+      return;
+    }
+
+    const hasProfileChange = cleanedName !== originalData.name || cleanedEmail !== originalData.email;
+    const hasPasswordChange = formData.newPassword.trim() !== '';
+
+    if (!hasProfileChange && !hasPasswordChange) {
+      setError('Bạn chưa thay đổi thông tin nào để lưu.');
       return;
     }
 
@@ -105,8 +132,8 @@ const Profile = () => {
     try {
       // Chuẩn bị data để gửi
       const updateData = {
-        name: formData.name,
-        email: formData.email,
+        name: cleanedName,
+        email: cleanedEmail,
       };
 
       // Thêm password nếu user muốn đổi
@@ -116,13 +143,21 @@ const Profile = () => {
 
       // GỬI REQUEST ĐẾN BACKEND
       const response = await axios.put(
-        `http://localhost:8080/api/users/${user.id}`,
+        `http://localhost:8080/v1/api/users/${user.id}`,
         updateData
       );
 
       if (response.data.success) {
         // Cập nhật context với thông tin mới (tự động update header)
         login(response.data.user);
+
+        const updatedName = response.data.user?.name || cleanedName;
+        const updatedEmail = response.data.user?.email || cleanedEmail;
+
+        setOriginalData({
+          name: updatedName,
+          email: updatedEmail
+        });
         
         setSuccess('Cập nhật thông tin thành công!');
         setIsEditing(false); // Chuyển về chế độ xem
@@ -130,6 +165,8 @@ const Profile = () => {
         // Reset password fields
         setFormData({
           ...formData,
+          name: updatedName,
+          email: updatedEmail,
           currentPassword: '',
           newPassword: '',
           confirmPassword: ''
@@ -154,8 +191,8 @@ const Profile = () => {
    */
   const handleCancel = () => {
     setFormData({
-      name: user.name || '',
-      email: user.email || '',
+      name: originalData.name,
+      email: originalData.email,
       currentPassword: '',
       newPassword: '',
       confirmPassword: ''

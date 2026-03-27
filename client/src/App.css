@@ -1,42 +1,222 @@
-#root {
-  max-width: 1280px;
+.app-shell {
+  min-height: 100vh;
+}
+
+.home-page {
+  width: min(1220px, 96vw);
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  padding: 28px 0 48px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.tour-section {
+  border: 1px solid var(--line-color);
+  border-radius: 16px;
+  padding: 20px;
+  background: radial-gradient(circle at top right, rgba(245, 138, 40, 0.06), transparent 45%), var(--surface-dark);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+.tour-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.tour-section-header h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tour-section-header p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.carousel-shell {
+  display: grid;
+  grid-template-columns: 42px 1fr 42px;
+  align-items: center;
+  gap: 14px;
+}
+
+.carousel-control {
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid var(--line-color);
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.carousel-control:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.tour-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.tour-card {
+  border: 1px solid var(--line-color);
+  border-radius: 12px;
+  padding: 14px;
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.2));
+}
+
+.tour-card-thumb {
+  height: 150px;
+  border: 1px solid var(--line-color);
+  border-radius: 10px;
+  background: linear-gradient(130deg, rgba(247, 110, 17, 0.12), rgba(9, 15, 28, 0.1));
+  margin-bottom: 12px;
+}
+
+.tour-card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.tour-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.tour-price {
+  color: var(--accent-color);
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.tour-description {
+  min-height: 44px;
+  font-size: 13px;
+  color: #c0ccde;
+  margin: 0 0 12px;
+}
+
+.tour-action {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--line-color);
+  padding: 9px 12px;
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.tour-action:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.booking-panel {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid var(--line-color);
+  border-radius: 14px;
+  background: var(--surface-dark);
+}
+
+.booking-panel h3 {
+  margin-top: 0;
+}
+
+.booking-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.booking-grid label,
+.booking-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.booking-grid input,
+.booking-note textarea {
+  border: 1px solid var(--line-color);
+  border-radius: 8px;
+  background: rgba(7, 10, 18, 0.9);
+  color: var(--text-main);
+  padding: 10px 12px;
+  font-family: inherit;
+}
+
+.booking-note {
+  margin-top: 12px;
+}
+
+.booking-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+}
+
+.booking-actions button {
+  border: 1px solid var(--line-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--accent-color);
+  color: #111;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.booking-actions .ghost {
+  background: transparent;
+  color: var(--text-main);
+}
+
+.state-text,
+.state-error,
+.state-success {
+  margin: 10px 0;
+}
+
+.state-error {
+  color: #ff7a7a;
+}
+
+.state-success {
+  color: #7ad9a8;
+}
+
+@media (max-width: 1024px) {
+  .tour-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  to {
-    transform: rotate(360deg);
+}
+
+@media (max-width: 768px) {
+  .home-page {
+    padding-top: 20px;
   }
-}
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
+  .carousel-shell {
+    grid-template-columns: 1fr;
   }
-}
 
-.card {
-  padding: 2em;
-}
+  .tour-grid {
+    grid-template-columns: 1fr;
+  }
 
-.read-the-docs {
-  color: #888;
+  .carousel-control {
+    width: 42px;
+    justify-self: center;
+  }
+
+  .booking-grid {
+    grid-template-columns: 1fr;
+  }
 }

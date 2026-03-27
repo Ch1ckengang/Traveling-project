@@ -2,34 +2,34 @@
 phase: implementation
 title: Implementation Guide
 feature: traveling-system
-description: Hướng dẫn kỹ thuật triển khai hệ thống đặt tour du lịch
+description: Technical implementation guide for the online tour booking system
 ---
 
 # Implementation Guide — Traveling System
 
 ## Development Setup
 
-**Yêu cầu môi trường:**
+**Prerequisites:**
 - Go 1.21+
 - Node.js 18+
-- MySQL 8.0 (chạy local hoặc Docker)
+- MySQL 8.0 (local or Docker)
 
-**Chạy Backend:**
+**Run Backend:**
 ```bash
 cd server
-cp .env.example .env      # Điền DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET
+cp .env.example .env      # Fill in DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET
 go mod tidy
-go run main.go            # Server chạy tại http://localhost:8080
+go run main.go            # Server runs at http://localhost:8080
 ```
 
-**Chạy Frontend:**
+**Run Frontend:**
 ```bash
 cd client
 npm install
-npm run dev               # App chạy tại http://localhost:5173
+npm run dev               # App runs at http://localhost:5173
 ```
 
-**Biến môi trường `.env` (server):**
+**Environment variables `.env` (server):**
 ```env
 DB_USER=root
 DB_PASSWORD=yourpassword
@@ -46,13 +46,13 @@ JWT_EXPIRE_HOURS=24
 
 ```
 server/
-├── main.go                  # Entry point, khởi tạo router
+├── main.go                  # Entry point, router initialization
 ├── go.mod / go.sum
 ├── .env
 ├── database/
-│   └── database.go          # Kết nối MySQL, expose DB instance
+│   └── database.go          # MySQL connection, exposes DB instance
 ├── models/
-│   └── models.go            # Tất cả GORM struct models
+│   └── models.go            # All GORM struct definitions
 ├── middleware/
 │   ├── auth.go              # JWT verification middleware
 │   └── role.go              # Role-based access control
@@ -60,26 +60,26 @@ server/
 │   ├── auth.go              # Login, Register handlers
 │   ├── user.go              # GetProfile, UpdateProfile handlers
 │   ├── tour.go              # CRUD tour handlers
-│   ├── lichtour.go          # CRUD lịch tour handlers
-│   ├── booking.go           # Tạo & xem phiếu đặt
-│   ├── invoice.go           # Tạo & xem hóa đơn
-│   ├── diadiem.go           # CRUD địa điểm
-│   └── dichvu.go            # CRUD dịch vụ
+│   ├── lichtour.go          # CRUD tour schedule handlers
+│   ├── booking.go           # Create & view bookings
+│   ├── invoice.go           # Create & view invoices
+│   ├── diadiem.go           # CRUD destinations
+│   └── dichvu.go            # CRUD services
 └── routes/
-    └── routes.go            # Đăng ký tất cả routes
+    └── routes.go            # Register all routes
 
 client/src/
 ├── main.jsx
 ├── App.jsx                  # Router setup
 ├── api/
-│   └── axiosInstance.js     # Axios với interceptor JWT
+│   └── axiosInstance.js     # Axios with JWT interceptor
 ├── context/
-│   ├── AuthContext.jsx      # Trạng thái đăng nhập toàn cục
-│   └── TourContext.jsx      # Cache danh sách tour
+│   ├── AuthContext.jsx      # Global auth state
+│   └── TourContext.jsx      # Tour list cache
 ├── components/
 │   ├── Auth/                # Login, Register
 │   ├── Layout/              # Header, Footer
-│   ├── Profile/             # Xem & sửa hồ sơ
+│   ├── Profile/             # View & edit profile
 │   ├── Tour/                # TourList, TourCard, TourDetail
 │   ├── Booking/             # BookingForm, BookingHistory
 │   └── Invoice/             # InvoiceList, InvoiceDetail
@@ -101,14 +101,14 @@ func AuthMiddleware() gin.HandlerFunc {
     return func(c *gin.Context) {
         tokenStr := c.GetHeader("Authorization")
         if tokenStr == "" || !strings.HasPrefix(tokenStr, "Bearer ") {
-            c.AbortWithStatusJSON(401, gin.H{"success": false, "message": "Chưa đăng nhập"})
+            c.AbortWithStatusJSON(401, gin.H{"success": false, "message": "Not authenticated"})
             return
         }
         tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
-        // Parse & validate JWT, set userID và role vào context
+        // Parse & validate JWT, set userID and role into context
         claims, err := parseJWT(tokenStr)
         if err != nil {
-            c.AbortWithStatusJSON(401, gin.H{"success": false, "message": "Token không hợp lệ"})
+            c.AbortWithStatusJSON(401, gin.H{"success": false, "message": "Invalid token"})
             return
         }
         c.Set("userID", claims.UserID)
@@ -120,20 +120,20 @@ func AuthMiddleware() gin.HandlerFunc {
 
 #### bcrypt Password (handlers/auth.go)
 ```go
-// Đăng ký — hash password
+// Register — hash password
 hashedPwd, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 newUser.Password = string(hashedPwd)
 
-// Đăng nhập — verify
+// Login — verify
 err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 if err != nil {
-    // password sai
+    // wrong password
 }
 ```
 
-#### Đặt tour — kiểm tra số chỗ còn lại (handlers/booking.go)
+#### Booking — check remaining seats (handlers/booking.go)
 ```go
-// Đếm số khách đã đặt trong lịch tour này
+// Count total guests already booked for this schedule
 var totalBooked int64
 db.Model(&PDTour{}).
     Where("lich_tour_id = ?", req.LichTourID).
@@ -142,12 +142,12 @@ db.Model(&PDTour{}).
 
 newGuests := req.SoKhachNL + req.SoKhachTreEm
 if int(totalBooked)+newGuests > lichTour.Tour.SLKhachMax {
-    c.JSON(400, gin.H{"success": false, "message": "Tour đã hết chỗ"})
+    c.JSON(400, gin.H{"success": false, "message": "Tour is fully booked"})
     return
 }
 ```
 
-#### Axio Instance với JWT (client/src/api/axiosInstance.js)
+#### Axios Instance with JWT (client/src/api/axiosInstance.js)
 ```js
 import axios from 'axios'
 
@@ -175,11 +175,11 @@ export default api
 
 ### Patterns & Best Practices
 
-- **Handler pattern**: Mỗi handler chỉ làm 1 việc — bind request, validate, gọi DB, trả response
-- **Error response nhất quán**: Luôn trả `{ success: bool, message: string, data?: ... }`
-- **GORM Preload**: Dùng `db.Preload("LichTour.Tour").Find(&pdtours)` thay vì nhiều query
-- **React Context**: Chỉ dùng cho state toàn cục (auth, tour list) — component state cho form data
-- **CSS Modules**: Mỗi component có file `.css` riêng, không dùng global class conflict
+- **Handler pattern**: Each handler does one thing — bind request, validate, call DB, return response
+- **Consistent error response**: Always return `{ success: bool, message: string, data?: ... }`
+- **GORM Preload**: Use `db.Preload("LichTour.Tour").Find(&pdtours)` instead of multiple queries
+- **React Context**: Only for global state (auth, tour list) — use component state for form data
+- **CSS Modules**: Each component has its own `.css` file to avoid global class conflicts
 
 ---
 
@@ -192,32 +192,32 @@ export default api
 
 **Backend → Database:**
 - Connection string: `user:pass@tcp(host:port)/dbname?charset=utf8mb4&parseTime=True`
-- GORM tự động handle connection pool
+- GORM handles connection pooling automatically
 
 ---
 
 ## Error Handling
 
-**Backend — HTTP Status codes chuẩn:**
+**Backend — Standard HTTP Status Codes:**
 
-| Tình huống | Status Code |
+| Situation | Status Code |
 |-----------|-------------|
-| Thành công | 200 / 201 |
-| Dữ liệu không hợp lệ | 400 Bad Request |
-| Chưa đăng nhập | 401 Unauthorized |
-| Không có quyền | 403 Forbidden |
-| Không tìm thấy | 404 Not Found |
-| Trùng lặp (email/mã) | 409 Conflict |
-| Lỗi server | 500 Internal Server Error |
+| Success | 200 / 201 |
+| Invalid input | 400 Bad Request |
+| Not authenticated | 401 Unauthorized |
+| Insufficient permissions | 403 Forbidden |
+| Resource not found | 404 Not Found |
+| Duplicate (email/code) | 409 Conflict |
+| Server error | 500 Internal Server Error |
 
 **Frontend — Error handling pattern:**
 ```jsx
 const [error, setError] = useState(null)
 try {
   const res = await api.post('/pdtour', data)
-  if (res.data.success) { /* xử lý thành công */ }
+  if (res.data.success) { /* handle success */ }
 } catch (err) {
-  setError(err.response?.data?.message || 'Có lỗi xảy ra')
+  setError(err.response?.data?.message || 'An error occurred')
 }
 ```
 
@@ -225,17 +225,17 @@ try {
 
 ## Performance Considerations
 
-- **DB Index**: Thêm index trên `email` (tblThanhVien), `tour_id` (tblLichTour), `lich_tour_id` (tblPDTour)
-- **GORM Select**: Chỉ select các cột cần thiết thay vì `SELECT *` khi trả danh sách
-- **Frontend**: Dùng `React.memo` cho `TourCard` tránh re-render không cần thiết
-- **Pagination**: Thêm `?page=1&limit=10` cho API `/api/tours` và `/api/pdtour`
+- **DB Index**: Add indexes on `email` (tblThanhVien), `tour_id` (tblLichTour), `lich_tour_id` (tblPDTour)
+- **GORM Select**: Only select required columns instead of `SELECT *` when returning lists
+- **Frontend**: Use `React.memo` on `TourCard` to prevent unnecessary re-renders
+- **Pagination**: Add `?page=1&limit=10` support to `/api/tours` and `/api/pdtour`
 
 ---
 
 ## Security Notes
 
-- Password **không bao giờ** được trả về trong response (dùng `json:"-"` tag trong GORM struct)
-- JWT secret phải đủ dài (>= 32 ký tự) và lưu trong `.env`, không commit vào git
-- Input validation trước khi lưu DB: kiểm tra độ dài, ký tự đặc biệt
-- CORS chỉ whitelist `http://localhost:5173` (dev) và domain production thực tế
-- File `.env` phải có trong `.gitignore`
+- Passwords are **never** returned in responses (use `json:"-"` tag on GORM struct fields)
+- JWT secret must be long (>= 32 characters) and stored in `.env`, never committed to git
+- Validate and sanitize all inputs before saving to DB: check length, special characters
+- CORS should only whitelist `http://localhost:5173` (dev) and the actual production domain
+- `.env` file must be listed in `.gitignore`

@@ -2,264 +2,63 @@ package main
 
 import (
 	"log"
-	"net/http"
+	"travel-backend/controllers"
 	"travel-backend/database"
 	"travel-backend/models"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
-// LoginRequest - Cấu trúc dữ liệu nhận từ client khi đăng nhập
-// Bao gồm email và password, cả 2 đều bắt buộc (required)
-type LoginRequest struct {
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
-// RegisterRequest - Cấu trúc dữ liệu nhận từ client khi đăng ký tài khoản mới
-// Bao gồm tên, email và password, tất cả đều bắt buộc
-type RegisterRequest struct {
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
-// UpdateUserRequest - Cấu trúc dữ liệu nhận từ client khi cập nhật thông tin cá nhân
-// Các trường đều optional, chỉ cập nhật những trường được gửi lên
-type UpdateUserRequest struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password,omitempty"` // omitempty: không bắt buộc
-}
-
-// AuthResponse - Cấu trúc dữ liệu trả về cho các API liên quan đến authentication
-// Success: trạng thái thành công/thất bại
-// Message: thông báo lỗi hoặc thành công
-// User: thông tin user (chỉ trả về khi thành công)
-type AuthResponse struct {
-	Success bool         `json:"success"`
-	Message string       `json:"message,omitempty"`
-	User    *models.User `json:"user,omitempty"`
-}
-
-// main - Hàm chính khởi tạo và chạy server
-// 1. Load biến môi trường từ file .env
-// 2. Kết nối database MySQL
-// 3. Tự động tạo/cập nhật bảng (migration)
-// 4. Seed dữ liệu mẫu nếu database trống
-// 5. Khởi tạo Gin router và định nghĩa các API endpoints
-// 6. Chạy server trên port 8080
+// main - Khởi tạo và chạy server
+// Sau khi refactor, main.go chỉ còn 3 nhiệm vụ:
+//  1. Kết nối database
+//  2. Đăng ký các routes (gắn URL với controller)
+//  3. Chạy server
+//
+// Tất cả logic đã được chuyển sang đúng tầng của nó
 func main() {
-	// Load file .env để đọc thông tin database (DB_USER, DB_PASSWORD, etc.)
-	if err := godotenv.Load(); err != nil {
-		log.Println("⚠️  Không tìm thấy file .env, sử dụng biến môi trường hệ thống")
-	}
-
-	// Kết nối đến MySQL database
+	// Kết nối đến SQLite database (file travel.db tự động tạo)
 	database.Connect()
 
-	// Auto migrate: tự động tạo/cập nhật cấu trúc bảng users và tours
-	database.DB.AutoMigrate(&models.User{}, &models.Tour{})
+	// Auto migrate: tự động tạo/cập nhật cấu trúc bảng
+	database.DB.AutoMigrate(&models.User{}, &models.Tour{}, &models.Booking{})
 
 	// Seed dữ liệu mẫu vào database nếu chưa có data
 	seedData()
 
-	// Khởi tạo Gin router (framework web)
+	// Khởi tạo Gin router
 	r := gin.Default()
 
 	// Cấu hình CORS để cho phép React (frontend) gọi API từ domain khác
 	r.Use(cors.Default())
 
-	// ===== API ENDPOINTS =====
-	
-	// GET /api/tours - Lấy danh sách tất cả các tour
-	// Response: Array của Tour objects
-	r.GET("/api/tours", func(c *gin.Context) {
-		var tours []models.Tour
-		// Lấy tất cả tours từ database
-		database.DB.Find(&tours)
-		// Trả về JSON với status 200
-		c.JSON(200, tours)
-	})
+	// ===== ĐĂNG KÝ ROUTES =====
+	// Nhóm tất cả API dưới prefix /v1
+	v1 := r.Group("/v1")
+	{
+		// Tour routes
+		v1.GET("/api/tours", controllers.GetTours)
+		v1.GET("/api/tours/domestic", controllers.GetDomesticTours)
+		v1.POST("/api/bookings", controllers.CreateBooking)
 
-	// POST /api/login - Xử lý đăng nhập
-	// Request body: {email: string, password: string}
-	// Response: {success: bool, message: string, user: User}
-	// Luồng: Nhận data -> Validate -> Tìm user -> Kiểm tra password -> Trả kết quả
-	r.POST("/api/login", func(c *gin.Context) {
-		var loginReq LoginRequest
-
-		// Bind JSON từ request body vào struct LoginRequest
-		if err := c.ShouldBindJSON(&loginReq); err != nil {
-			c.JSON(http.StatusBadRequest, AuthResponse{
-				Success: false,
-				Message: "Dữ liệu không hợp lệ",
-			})
-			return
-		}
-
-		// Tìm user trong database với email và password khớp
-		var user models.User
-		result := database.DB.Where("email = ? AND password = ?", loginReq.Email, loginReq.Password).First(&user)
-
-		// Nếu không tìm thấy -> email hoặc password sai
-		if result.Error != nil {
-			c.JSON(http.StatusUnauthorized, AuthResponse{
-				Success: false,
-				Message: "Email hoặc mật khẩu không đúng",
-			})
-			return
-		}
-
-		// Đăng nhập thành công, trả về user (password tự động bị ẩn bởi json:"-" tag)
-		c.JSON(http.StatusOK, AuthResponse{
-			Success: true,
-			Message: "Đăng nhập thành công",
-			User:    &user,
-		})
-	})
-
-	// POST /api/register - Đăng ký tài khoản mới
-	// Request body: {name: string, email: string, password: string}
-	// Response: {success: bool, message: string, user: User}
-	// Luồng: Nhận data -> Validate -> Kiểm tra email trùng -> Tạo user -> Lưu DB
-	r.POST("/api/register", func(c *gin.Context) {
-		var registerReq RegisterRequest
-
-		// Bind và validate JSON request
-		if err := c.ShouldBindJSON(&registerReq); err != nil {
-			c.JSON(http.StatusBadRequest, AuthResponse{
-				Success: false,
-				Message: "Dữ liệu không hợp lệ",
-			})
-			return
-		}
-
-		// Kiểm tra email đã tồn tại trong database chưa
-		var existingUser models.User
-		if err := database.DB.Where("email = ?", registerReq.Email).First(&existingUser).Error; err == nil {
-			// Nếu tìm thấy (err == nil) -> email đã tồn tại
-			c.JSON(http.StatusConflict, AuthResponse{
-				Success: false,
-				Message: "Email đã được đăng ký",
-			})
-			return
-		}
-
-		// Tạo đối tượng user mới
-		newUser := models.User{
-			Name:     registerReq.Name,
-			Email:    registerReq.Email,
-			Password: registerReq.Password,
-		}
-
-		// Lưu user mới vào database
-		if err := database.DB.Create(&newUser).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, AuthResponse{
-				Success: false,
-				Message: "Không thể tạo tài khoản",
-			})
-			return
-		}
-
-		// Đăng ký thành công, trả về thông tin user
-		c.JSON(http.StatusOK, AuthResponse{
-			Success: true,
-			Message: "Đăng ký thành công",
-			User:    &newUser,
-		})
-	})
-
-	// PUT /api/users/:id - Cập nhật thông tin cá nhân
-	// URL params: id (user ID)
-	// Request body: {name?: string, email?: string, password?: string}
-	// Response: {success: bool, message: string, user: User}
-	// Luồng: Lấy ID -> Tìm user -> Validate email trùng -> Update fields -> Lưu DB
-	// Chức năng quan trọng: Kiểm tra email không bị trùng với user khác
-	r.PUT("/api/users/:id", func(c *gin.Context) {
-		// Lấy user ID từ URL parameter
-		userID := c.Param("id")
-		var updateReq UpdateUserRequest
-
-		// Bind JSON request
-		if err := c.ShouldBindJSON(&updateReq); err != nil {
-			c.JSON(http.StatusBadRequest, AuthResponse{
-				Success: false,
-				Message: "Dữ liệu không hợp lệ",
-			})
-			return
-		}
-
-		// Tìm user hiện tại trong database theo ID
-		var user models.User
-		if err := database.DB.First(&user, userID).Error; err != nil {
-			c.JSON(http.StatusNotFound, AuthResponse{
-				Success: false,
-				Message: "Không tìm thấy người dùng",
-			})
-			return
-		}
-
-		// KIỂM TRA TRÙNG LẶP EMAIL
-		// Nếu user muốn đổi email (email mới khác email cũ)
-		if updateReq.Email != "" && updateReq.Email != user.Email {
-			var existingUser models.User
-			// Tìm xem có user nào khác (id khác) đang dùng email này không
-			if err := database.DB.Where("email = ? AND id != ?", updateReq.Email, userID).First(&existingUser).Error; err == nil {
-				// Nếu tìm thấy -> email đã được dùng bởi user khác
-				c.JSON(http.StatusConflict, AuthResponse{
-					Success: false,
-					Message: "Email đã được sử dụng bởi tài khoản khác",
-				})
-				return
-			}
-			// Email không trùng, cập nhật email mới
-			user.Email = updateReq.Email
-		}
-
-		// Cập nhật tên nếu được gửi lên
-		if updateReq.Name != "" {
-			user.Name = updateReq.Name
-		}
-
-		// Cập nhật mật khẩu nếu được gửi lên
-		if updateReq.Password != "" {
-			user.Password = updateReq.Password
-		}
-
-		// Lưu các thay đổi vào database
-		if err := database.DB.Save(&user).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, AuthResponse{
-				Success: false,
-				Message: "Không thể cập nhật thông tin",
-			})
-			return
-		}
-
-		// Cập nhật thành công
-		c.JSON(http.StatusOK, AuthResponse{
-			Success: true,
-			Message: "Cập nhật thông tin thành công",
-			User:    &user,
-		})
-	})
+		// User routes
+		v1.POST("/api/login", controllers.Login)
+		v1.POST("/api/register", controllers.Register)
+		v1.PUT("/api/users/:id", controllers.UpdateUser)
+	}
 
 	// Khởi động server HTTP trên port 8080
-	// Server sẽ lắng nghe các request tại localhost:8080
 	r.Run(":8080")
 }
 
-// seedData - Hàm thêm dữ liệu mẫu vào database
-// Chỉ chạy khi database còn trống (lần đầu khởi động)
-// Seed: Users mẫu và Tours mẫu
+// seedData - Thêm dữ liệu mẫu vào database khi lần đầu khởi động
+// Hàm này vẫn ở main.go vì nó là logic khởi tạo ứng dụng,
+// không phải business logic của một feature cụ thể
 func seedData() {
-	// SEED USERS MẪU
+	// Seed Users mẫu nếu bảng còn trống
 	var userCount int64
-	// Đếm số lượng user hiện có trong database
 	database.DB.Model(&models.User{}).Count(&userCount)
-	// Nếu chưa có user nào -> thêm user mẫu
 	if userCount == 0 {
 		users := []models.User{
 			{Name: "Nguyễn Văn A", Email: "test@example.com", Password: "123456"},
@@ -269,16 +68,25 @@ func seedData() {
 		log.Println("✅ Đã seed dữ liệu User mẫu")
 	}
 
-	// SEED TOURS MẪU
+	// Seed Tours mẫu nếu bảng còn trống
 	var tourCount int64
-	// Đếm số lượng tour hiện có
 	database.DB.Model(&models.Tour{}).Count(&tourCount)
-	// Nếu chưa có tour nào -> thêm tour mẫu
 	if tourCount == 0 {
 		tours := []models.Tour{
-			{Name: "Tour Đà Nẵng - Hội An", Price: "2.000.000đ", Location: "Đà Nẵng", Duration: "3 ngày 2 đêm"},
-			{Name: "Tour Hà Nội - Sa Pa", Price: "3.500.000đ", Location: "Hà Nội", Duration: "4 ngày 3 đêm"},
-			{Name: "Tour Phú Quốc", Price: "5.000.000đ", Location: "Phú Quốc", Duration: "5 ngày 4 đêm"},
+			{Name: "Tour Đà Nẵng - Hội An", Type: "domestic", Price: "2.000.000đ", Location: "Đà Nẵng", Country: "Việt Nam", Duration: "3 ngày 2 đêm", Description: "Khám phá phố cổ Hội An và biển Mỹ Khê."},
+			{Name: "Tour Hà Nội - Sa Pa", Type: "domestic", Price: "3.500.000đ", Location: "Hà Nội", Country: "Việt Nam", Duration: "4 ngày 3 đêm", Description: "Trải nghiệm khí hậu vùng cao và bản làng Tây Bắc."},
+			{Name: "Tour Phú Quốc", Type: "domestic", Price: "5.000.000đ", Location: "Phú Quốc", Country: "Việt Nam", Duration: "5 ngày 4 đêm", Description: "Nghỉ dưỡng biển đảo và thưởng thức hải sản địa phương."},
+			{Name: "Tour Nha Trang - Đà Lạt", Type: "domestic", Price: "4.800.000đ", Location: "Nha Trang", Country: "Việt Nam", Duration: "4 ngày 3 đêm", Description: "Kết hợp nghỉ biển Nha Trang và khí hậu mát mẻ Đà Lạt."},
+			{Name: "Tour Bangkok - Pattaya", Type: "international", Price: "8.200.000đ", Location: "Bangkok", Country: "Thái Lan", Duration: "5 ngày 4 đêm", Description: "Lộ trình quốc tế phù hợp gia đình và nhóm bạn."},
+			{Name: "Tour Seoul Mùa Hoa", Type: "international", Price: "12.500.000đ", Location: "Seoul", Country: "Hàn Quốc", Duration: "6 ngày 5 đêm", Description: "Tham quan cung điện, phố mua sắm và ẩm thực Hàn."},
+			{Name: "Tour Tokyo - Núi Phú Sĩ", Type: "international", Price: "15.900.000đ", Location: "Tokyo", Country: "Nhật Bản", Duration: "6 ngày 5 đêm", Description: "Khám phá Tokyo hiện đại và trải nghiệm văn hóa Nhật Bản."},
+			{Name: "Tour Paris - Lyon", Type: "international", Price: "18.500.000đ", Location: "Paris", Country: "Pháp", Duration: "7 ngày 6 đêm", Description: "Hành trình châu Âu với điểm nhấn ẩm thực và kiến trúc cổ điển."},
+			{Name: "Tour Singapore - Sentosa", Type: "international", Price: "9.600.000đ", Location: "Singapore", Country: "Singapore", Duration: "4 ngày 3 đêm", Description: "Khám phá đảo quốc sư tử với lịch trình hiện đại và thân thiện gia đình."},
+			{Name: "Tour Bali - Ubud", Type: "international", Price: "10.800.000đ", Location: "Bali", Country: "Indonesia", Duration: "5 ngày 4 đêm", Description: "Nghỉ dưỡng biển đảo, check-in ruộng bậc thang và đền cổ Bali."},
+			{Name: "Tour Sydney - Melbourne", Type: "international", Price: "21.900.000đ", Location: "Sydney", Country: "Úc", Duration: "7 ngày 6 đêm", Description: "Hành trình nước Úc qua hai thành phố biểu tượng."},
+			{Name: "Tour Dubai - Abu Dhabi", Type: "international", Price: "19.500.000đ", Location: "Dubai", Country: "UAE", Duration: "6 ngày 5 đêm", Description: "Trải nghiệm thành phố xa hoa và văn hóa Trung Đông đặc sắc."},
+			{Name: "Combo Visa + Vé Máy Bay", Type: "service", Price: "1.800.000đ", Location: "Hồ Chí Minh", Country: "Việt Nam", Duration: "2 ngày", Description: "Dịch vụ làm visa nhanh và hỗ trợ đặt vé trọn gói."},
+			{Name: "Đưa Đón Sân Bay Cao Cấp", Type: "service", Price: "900.000đ", Location: "Hà Nội", Country: "Việt Nam", Duration: "Trong ngày", Description: "Đưa đón đúng giờ với xe riêng và tài xế kinh nghiệm."},
 		}
 		database.DB.Create(&tours)
 		log.Println("✅ Đã seed dữ liệu Tour mẫu")

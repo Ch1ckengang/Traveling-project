@@ -28,13 +28,17 @@ CREATE TABLE users (
 CREATE TABLE tours (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'domestic',
     price VARCHAR(100) NOT NULL,
     description TEXT,
     location VARCHAR(255),
+    country VARCHAR(255) NOT NULL DEFAULT 'Việt Nam',
     duration VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_location (location)
+    INDEX idx_location (location),
+    INDEX idx_type (type),
+    INDEX idx_country (country)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================
@@ -48,12 +52,19 @@ INSERT INTO users (name, email, password) VALUES
 -- =============================================
 -- Insert dữ liệu mẫu vào bảng TOURS
 -- =============================================
-INSERT INTO tours (name, price, description, location, duration) VALUES
-('Tour Đà Nẵng - Hội An', '2.000.000đ', 'Khám phá vẻ đẹp của Đà Nẵng và phố cổ Hội An', 'Đà Nẵng', '3 ngày 2 đêm'),
-('Tour Hà Nội - Sa Pa', '3.500.000đ', 'Chinh phục đỉnh Fansipan và khám phá Sapa', 'Hà Nội', '4 ngày 3 đêm'),
-('Tour Phú Quốc', '5.000.000đ', 'Nghỉ dưỡng tại đảo ngọc Phú Quốc', 'Phú Quốc', '5 ngày 4 đêm'),
-('Tour Nha Trang', '3.000.000đ', 'Tắm biển và khám phá vịnh Nha Trang', 'Nha Trang', '3 ngày 2 đêm'),
-('Tour Đà Lạt', '2.500.000đ', 'Thành phố ngàn hoa với khí hậu mát mẻ', 'Đà Lạt', '3 ngày 2 đêm');
+INSERT INTO tours (name, type, price, description, location, country, duration) VALUES
+('Tour Đà Nẵng - Hội An', 'domestic', '2.000.000đ', 'Khám phá vẻ đẹp của Đà Nẵng và phố cổ Hội An', 'Đà Nẵng', 'Việt Nam', '3 ngày 2 đêm'),
+('Tour Hà Nội - Sa Pa', 'domestic', '3.500.000đ', 'Chinh phục đỉnh Fansipan và khám phá Sapa', 'Hà Nội', 'Việt Nam', '4 ngày 3 đêm'),
+('Tour Phú Quốc', 'domestic', '5.000.000đ', 'Nghỉ dưỡng tại đảo ngọc Phú Quốc', 'Phú Quốc', 'Việt Nam', '5 ngày 4 đêm'),
+('Tour Nha Trang - Đà Lạt', 'domestic', '4.800.000đ', 'Kết hợp du lịch biển và nghỉ dưỡng cao nguyên', 'Nha Trang', 'Việt Nam', '4 ngày 3 đêm'),
+('Tour Bangkok - Pattaya', 'international', '8.200.000đ', 'Tham quan chùa vàng và thành phố biển Pattaya', 'Bangkok', 'Thái Lan', '5 ngày 4 đêm'),
+('Tour Seoul Mùa Hoa', 'international', '12.500.000đ', 'Khám phá Seoul và văn hóa Hàn Quốc hiện đại', 'Seoul', 'Hàn Quốc', '6 ngày 5 đêm'),
+('Tour Tokyo - Núi Phú Sĩ', 'international', '15.900.000đ', 'Trải nghiệm Tokyo và biểu tượng Nhật Bản', 'Tokyo', 'Nhật Bản', '6 ngày 5 đêm'),
+('Tour Paris - Lyon', 'international', '18.500.000đ', 'Hành trình Pháp với kiến trúc và ẩm thực châu Âu', 'Paris', 'Pháp', '7 ngày 6 đêm'),
+('Tour Singapore - Sentosa', 'international', '9.600.000đ', 'Khám phá đảo quốc sư tử và Sentosa', 'Singapore', 'Singapore', '4 ngày 3 đêm'),
+('Tour Bali - Ubud', 'international', '10.800.000đ', 'Nghỉ dưỡng biển đảo Bali và tham quan Ubud', 'Bali', 'Indonesia', '5 ngày 4 đêm'),
+('Tour Sydney - Melbourne', 'international', '21.900.000đ', 'Khám phá hai thành phố nổi tiếng của Úc', 'Sydney', 'Úc', '7 ngày 6 đêm'),
+('Tour Dubai - Abu Dhabi', 'international', '19.500.000đ', 'Trải nghiệm Trung Đông xa hoa và độc đáo', 'Dubai', 'UAE', '6 ngày 5 đêm');
 
 -- =============================================
 -- Kiểm tra dữ liệu đã insert

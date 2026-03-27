@@ -2,129 +2,129 @@
 phase: requirements
 title: Requirements & Problem Understanding
 feature: traveling-system
-description: Phân tích yêu cầu toàn bộ hệ thống đặt tour du lịch trực tuyến
+description: Full requirements analysis for the online tour booking system
 ---
 
 # Requirements & Problem Understanding — Traveling System
 
 ## Problem Statement
 
-**Vấn đề đang giải quyết:**
+**Problem being solved:**
 
-- Khách hàng khó tìm kiếm, so sánh và đặt tour du lịch một cách nhanh chóng, minh bạch
-- Doanh nghiệp du lịch thiếu công cụ quản lý tour, lịch khởi hành, đặt chỗ và xuất hóa đơn tập trung
-- Quy trình xử lý đặt tour thủ công dẫn đến sai sót và tốn nhiều nhân lực
+- Customers struggle to search, compare, and book tours quickly and transparently
+- Travel companies lack a centralized tool for managing tours, schedules, bookings, and invoices
+- Manual booking processes lead to errors and high labor costs
 
-**Đối tượng bị ảnh hưởng:**
-- Khách hàng cá nhân muốn đặt tour du lịch trong nước
-- Nhân viên công ty du lịch (tư vấn, lập hóa đơn, quản lý tour)
-- Quản trị viên hệ thống
+**Who is affected:**
+- Individual customers looking to book domestic travel tours
+- Travel company staff (consultants, invoicing, tour management)
+- System administrators
 
-**Tình trạng hiện tại:**
-- Hệ thống đang có backend Go (Gin + GORM + MySQL) với các API cơ bản: đăng nhập, đăng ký, cập nhật thông tin, lấy danh sách tour
-- Frontend React (Vite) đã có giao diện đăng nhập, đăng ký, hồ sơ cá nhân và tìm kiếm tour
-- Chưa có tính năng đặt tour, quản lý lịch tour, hóa đơn
+**Current state:**
+- Backend in Go (Gin + GORM + MySQL) with basic APIs: login, register, update profile, list tours
+- React (Vite) frontend has login, register, profile, and tour search screens
+- No tour booking, tour schedule management, or invoice features yet
 
 ---
 
 ## Goals & Objectives
 
-**Mục tiêu chính (In-scope):**
-1. Quản lý tài khoản thành viên — đăng ký, đăng nhập, chỉnh sửa hồ sơ
-2. Quản lý thông tin tour — thêm, sửa, xóa, tìm kiếm tour
-3. Quản lý lịch tour — tạo và theo dõi lịch khởi hành cho từng tour
-4. Đặt tour — khách hàng chọn tour, chọn lịch và gửi phiếu đặt
-5. Quản lý hóa đơn — nhân viên xác nhận và xuất hóa đơn
-6. Quản lý địa điểm và dịch vụ — gán điểm đến và dịch vụ cho từng tour
+**Primary goals (In-scope):**
+1. Member account management — registration, login, profile editing
+2. Tour information management — create, update, delete, search tours
+3. Tour schedule management — create and track departure schedules per tour
+4. Tour booking — customers select a tour, choose a schedule, and submit a booking
+5. Invoice management — staff confirm and issue invoices
+6. Destination & service management — assign destinations and services to tours
 
-**Mục tiêu phụ:**
-- Hiển thị thông tin tour hấp dẫn với ảnh, mô tả, giá
-- Thống kê doanh thu và số lượng khách
+**Secondary goals:**
+- Display rich tour information with images, descriptions, and pricing
+- Revenue and guest count statistics
 
-**Ngoài phạm vi (Non-goals):**
-- Tích hợp cổng thanh toán trực tuyến (VNPay, Momo) — giai đoạn sau
-- App mobile — chỉ Web
-- Đa ngôn ngữ — chỉ Tiếng Việt
-- Đánh giá / review tour
+**Non-goals (Out of scope):**
+- Online payment gateway integration (VNPay, Momo) — future phase
+- Mobile app — Web only
+- Multi-language support — Vietnamese only
+- Tour ratings / reviews
 
 ---
 
 ## User Stories & Use Cases
 
-### Khách Hàng (tblKhachHang)
+### Customer (tblKhachHang)
 
-| # | User Story | Mức độ ưu tiên |
-|---|------------|----------------|
-| KH-01 | Là khách hàng, tôi muốn **đăng ký tài khoản** để có thể đặt tour | 🔴 Cao |
-| KH-02 | Là khách hàng, tôi muốn **đăng nhập** để truy cập hệ thống | 🔴 Cao |
-| KH-03 | Là khách hàng, tôi muốn **xem danh sách tour** để tìm tour phù hợp | 🔴 Cao |
-| KH-04 | Là khách hàng, tôi muốn **tìm kiếm tour theo địa điểm** để thu hẹp lựa chọn | 🟡 Trung bình |
-| KH-05 | Là khách hàng, tôi muốn **xem chi tiết tour** (ảnh, mô tả, lịch, giá) để quyết định đặt | 🔴 Cao |
-| KH-06 | Là khách hàng, tôi muốn **đặt tour** (chọn lịch, số người lớn, số trẻ em) để xác nhận chuyến đi | 🔴 Cao |
-| KH-07 | Là khách hàng, tôi muốn **xem lịch sử đặt tour** để theo dõi các chuyến đi đã đặt | 🟡 Trung bình |
-| KH-08 | Là khách hàng, tôi muốn **chỉnh sửa thông tin cá nhân** để cập nhật hồ sơ | 🟡 Trung bình |
+| # | User Story | Priority |
+|---|------------|----------|
+| C-01 | As a customer, I want to **register an account** so that I can book tours | 🔴 High |
+| C-02 | As a customer, I want to **log in** so that I can access the system | 🔴 High |
+| C-03 | As a customer, I want to **browse the tour list** so that I can find a suitable tour | 🔴 High |
+| C-04 | As a customer, I want to **search tours by destination** so that I can narrow my options | 🟡 Medium |
+| C-05 | As a customer, I want to **view tour details** (images, description, schedule, price) to decide whether to book | 🔴 High |
+| C-06 | As a customer, I want to **book a tour** (select schedule, number of adults and children) to confirm my trip | 🔴 High |
+| C-07 | As a customer, I want to **view my booking history** to track my booked trips | 🟡 Medium |
+| C-08 | As a customer, I want to **edit my personal profile** to keep my information up to date | 🟡 Medium |
 
-### Nhân Viên (tblNhanVien)
+### Staff (tblNhanVien)
 
-| # | User Story | Mức độ ưu tiên |
-|---|------------|----------------|
-| NV-01 | Là nhân viên, tôi muốn **quản lý thông tin tour** (CRUD) để duy trì catalog tour | 🔴 Cao |
-| NV-02 | Là nhân viên, tôi muốn **tạo lịch tour** (ngày khởi hành, ngày về) để khách hàng lựa chọn | 🔴 Cao |
-| NV-03 | Là nhân viên, tôi muốn **xem danh sách phiếu đặt** để xử lý đơn hàng | 🔴 Cao |
-| NV-04 | Là nhân viên, tôi muốn **tạo hóa đơn** cho phiếu đặt được xác nhận | 🔴 Cao |
-| NV-05 | Là nhân viên, tôi muốn **quản lý địa điểm** trong hệ thống để gán vào tour | 🟡 Trung bình |
-| NV-06 | Là nhân viên, tôi muốn **quản lý dịch vụ** (khách sạn, ăn uống) theo từng điểm dừng | 🟢 Thấp |
+| # | User Story | Priority |
+|---|------------|----------|
+| S-01 | As a staff member, I want to **manage tour information** (CRUD) to maintain the tour catalog | 🔴 High |
+| S-02 | As a staff member, I want to **create tour schedules** (departure/return dates) for customers to choose from | 🔴 High |
+| S-03 | As a staff member, I want to **view all booking orders** to process them | 🔴 High |
+| S-04 | As a staff member, I want to **create invoices** for confirmed bookings | 🔴 High |
+| S-05 | As a staff member, I want to **manage destinations** to assign them to tours | 🟡 Medium |
+| S-06 | As a staff member, I want to **manage services** (hotel, dining) per tour stop | 🟢 Low |
 
-### Quản Trị Viên
+### Administrator
 
-| # | User Story | Mức độ ưu tiên |
-|---|------------|----------------|
-| QTV-01 | Là quản trị viên, tôi muốn **quản lý tài khoản thành viên** để kiểm soát quyền truy cập | 🟡 Trung bình |
-| QTV-02 | Là quản trị viên, tôi muốn **xem thống kê tổng hợp** (doanh thu, số tour, số khách) | 🟢 Thấp |
+| # | User Story | Priority |
+|---|------------|----------|
+| A-01 | As an admin, I want to **manage member accounts** to control access rights | 🟡 Medium |
+| A-02 | As an admin, I want to **view summary statistics** (revenue, tours, guests) | 🟢 Low |
 
 ---
 
 ## Success Criteria
 
-| Tiêu chí | Cách đo lường |
-|----------|---------------|
-| Khách hàng đặt tour thành công | Phiếu đặt được tạo và lưu vào DB, nhân viên nhìn thấy |
-| Nhân viên tạo hóa đơn thành công | Hóa đơn liên kết đúng với phiếu đặt và thành viên |
-| Tìm kiếm tour hoạt động | Trả về kết quả đúng trong < 1 giây |
-| Xác thực tài khoản an toàn | Password được hash, không lộ ra response |
-| Giao diện hiển thị đúng | Responsive trên desktop và mobile |
-| Không mất dữ liệu | Transaction DB rollback khi lỗi |
+| Criterion | Measurement |
+|-----------|-------------|
+| Customer successfully books a tour | Booking is created and saved in DB, visible to staff |
+| Staff successfully creates an invoice | Invoice correctly linked to the booking and member |
+| Tour search works correctly | Returns accurate results in < 1 second |
+| Account authentication is secure | Passwords are hashed and never exposed in responses |
+| UI displays correctly | Responsive on both desktop and mobile |
+| No data loss | DB transaction rolls back on error |
 
 ---
 
 ## Constraints & Assumptions
 
-**Ràng buộc kỹ thuật:**
-- Backend: Go 1.21+ với Gin framework và GORM ORM
-- Database: MySQL 8.0 với charset utf8mb4
-- Frontend: React 18 + Vite, không dùng TypeScript
-- Chưa có authentication middleware (JWT) — cần bổ sung
-- Password hiện tại lưu plaintext — phải chuyển sang bcrypt
+**Technical constraints:**
+- Backend: Go 1.21+ with Gin framework and GORM ORM
+- Database: MySQL 8.0 with utf8mb4 charset
+- Frontend: React 18 + Vite, no TypeScript
+- No JWT authentication middleware yet — needs to be added
+- Passwords currently stored as plaintext — must migrate to bcrypt
 
-**Ràng buộc nghiệp vụ:**
-- Một lịch tour có số lượng khách tối đa (`SLKhachMax` trong `tblTour`)
-- Hóa đơn chỉ được tạo bởi nhân viên (không phải khách tự tạo)
-- Phiếu đặt cần có ít nhất 1 khách người lớn
+**Business constraints:**
+- Each tour schedule has a maximum guest capacity (`SLKhachMax` in `tblTour`)
+- Invoices can only be created by staff (not by customers)
+- A booking must include at least 1 adult guest
 
-**Giả định:**
-- Hệ thống chạy nội bộ, không yêu cầu CDN hay load balancer
-- Ảnh tour được lưu local hoặc qua URL bên ngoài
-- Múi giờ: UTC+7 (Việt Nam)
+**Assumptions:**
+- The system runs internally; no CDN or load balancer required
+- Tour images are stored locally or via external URLs
+- Timezone: UTC+7 (Vietnam)
 
 ---
 
 ## Questions & Open Items
 
-| # | Câu hỏi | Trạng thái |
-|---|---------|------------|
-| Q-01 | Password hiện tại lưu plaintext — khi nào migrate sang bcrypt? | ⏳ Cần xác nhận |
-| Q-02 | JWT token hay Session-based authentication? | ⏳ Cần xác nhận |
-| Q-03 | Trạng thái phiếu đặt tour: pending → confirmed → cancelled? | ⏳ Cần xác nhận |
-| Q-04 | Giá tour có phân biệt người lớn / trẻ em không? | ⏳ Cần xác nhận |
-| Q-05 | Upload ảnh tour: lưu server hay dùng cloud storage? | ⏳ Cần xác nhận |
-| Q-06 | Nhân viên và khách hàng login cùng endpoint hay khác nhau? | ⏳ Cần xác nhận |
+| # | Question | Status |
+|---|----------|--------|
+| Q-01 | Passwords are currently plaintext — when to migrate to bcrypt? | ⏳ Pending |
+| Q-02 | JWT token or session-based authentication? | ⏳ Pending |
+| Q-03 | Booking status flow: pending → confirmed → cancelled? | ⏳ Pending |
+| Q-04 | Does tour pricing differentiate between adults and children? | ⏳ Pending |
+| Q-05 | Tour image upload: store on server or use cloud storage? | ⏳ Pending |
+| Q-06 | Do staff and customers share the same login endpoint? | ⏳ Pending |

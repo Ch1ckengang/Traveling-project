@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/Header.css';
 
@@ -14,32 +14,28 @@ const Header = () => {
   return (
     <header className="header-container">
       <div className="header-content">
-        {/* Menu chính */}
         <nav className="nav-links">
-          <Link to="/" className="nav-item">Trang chủ</Link>
-          <Link to="/vietnam" className="nav-item">Du lịch Việt Nam</Link>
-          <Link to="/quocte" className="nav-item">Du lịch Quốc tế</Link>
-          <Link to="/dichvu" className="nav-item">Dịch vụ</Link>
+          <NavLink to="/" className="nav-item">Trang chủ</NavLink>
+          <NavLink to="/vietnam" className="nav-item">Du lịch Việt Nam</NavLink>
+          <NavLink to="/quocte" className="nav-item">Du lịch quốc tế</NavLink>
+          <NavLink to="/dichvu" className="nav-item">Dịch vụ</NavLink>
         </nav>
 
-        {/* Khu vực Đăng nhập / User */}
         <div className="auth-area">
           {isLoggedIn ? (
             <div className="user-profile">
               <Link to="/profile" className="avatar-link">
                 <div className="avatar">{user?.name?.charAt(0).toUpperCase()}</div>
               </Link>
-              <span>Xin chào, {user?.name}</span>
-              <button onClick={handleLogout} className="btn-logout">Đăng xuất</button>
+              <span className="user-text">{user?.name}</span>
+              <button type="button" onClick={handleLogout} className="btn-logout">Đăng xuất</button>
             </div>
           ) : (
             <div className="guest-actions">
-              <Link to="/login">
-                <button className="btn-login">ĐĂNG NHẬP</button>
-              </Link>
-              <Link to="/register">
-                <button className="btn-register">ĐĂNG KÝ</button>
-              </Link>
+              <span className="avatar guest-avatar">U</span>
+              <span className="user-text">Khách</span>
+              <Link to="/login" className="auth-link">Đăng nhập</Link>
+              <Link to="/register" className="auth-link">Đăng ký</Link>
             </div>
           )}
         </div>
