@@ -42,12 +42,9 @@ CREATE TABLE tours (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================
--- Insert dữ liệu mẫu vào bảng USERS
+-- Không seed USERS bằng mật khẩu plain text
+-- Hãy tạo user qua API /v1/api/register để mật khẩu được băm bằng bcrypt
 -- =============================================
-INSERT INTO users (name, email, password) VALUES
-('Nguyễn Văn A', 'test@example.com', '123456'),
-('Trần Thị B', 'user@example.com', '123456'),
-('Lê Văn C', 'admin@example.com', '123456');
 
 -- =============================================
 -- Insert dữ liệu mẫu vào bảng TOURS

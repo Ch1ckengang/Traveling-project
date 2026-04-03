@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Header from './components/Layout/Header';
 import SearchBar from './components/Home/SearchBar';
 import Login from './components/Auth/Login';
@@ -351,11 +352,13 @@ function AppShell() {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppShell />
-      </Router>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <AppShell />
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

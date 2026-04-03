@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"net/http"
 	"travel-backend/models"
 	"travel-backend/services"
@@ -22,8 +23,19 @@ func CreateBooking(c *gin.Context) {
 	booking, err := services.CreateBooking(req)
 	if err != nil {
 		status := http.StatusInternalServerError
-		if err.Error() == "Số lượng khách phải lớn hơn 0" || err.Error() == "Tour không tồn tại" {
+
+		if errors.Is(err, services.ErrInvalidBookingPayload) ||
+			errors.Is(err, services.ErrInvalidFullName) ||
+			errors.Is(err, services.ErrInvalidPhone) ||
+			errors.Is(err, services.ErrInvalidEmail) ||
+			errors.Is(err, services.ErrInvalidQuantity) ||
+			errors.Is(err, services.ErrInvalidTravelDate) ||
+			errors.Is(err, services.ErrTravelDateInPast) {
 			status = http.StatusBadRequest
+		}
+
+		if errors.Is(err, services.ErrTourNotFound) {
+			status = http.StatusNotFound
 		}
 
 		c.JSON(status, models.BookingResponse{

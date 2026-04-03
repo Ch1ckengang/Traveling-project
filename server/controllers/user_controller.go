@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"net/http"
 	"travel-backend/models"
 	"travel-backend/services"
@@ -21,7 +22,7 @@ func Login(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.AuthResponse{
 			Success: false,
-			Message: "Dữ liệu không hợp lệ",
+			Message: services.ErrInvalidAuthPayload.Error(),
 		})
 		return
 	}
@@ -29,7 +30,7 @@ func Login(c *gin.Context) {
 	// Bước 2: Gọi service để xử lý business logic
 	user, err := services.Login(req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, models.AuthResponse{
+		c.JSON(authErrorStatus(err), models.AuthResponse{
 			Success: false,
 			Message: err.Error(),
 		})
@@ -52,7 +53,7 @@ func Register(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.AuthResponse{
 			Success: false,
-			Message: "Dữ liệu không hợp lệ",
+			Message: services.ErrInvalidAuthPayload.Error(),
 		})
 		return
 	}
@@ -60,8 +61,7 @@ func Register(c *gin.Context) {
 	// Bước 2: Gọi service để xử lý business logic
 	newUser, err := services.Register(req.Name, req.Email, req.Password)
 	if err != nil {
-		// Service trả về lỗi "Email đã được đăng ký"
-		c.JSON(http.StatusConflict, models.AuthResponse{
+		c.JSON(authErrorStatus(err), models.AuthResponse{
 			Success: false,
 			Message: err.Error(),
 		})
@@ -74,6 +74,22 @@ func Register(c *gin.Context) {
 		Message: "Đăng ký thành công",
 		User:    newUser,
 	})
+}
+
+func authErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, services.ErrInvalidAuthPayload),
+		errors.Is(err, services.ErrInvalidName),
+		errors.Is(err, services.ErrInvalidRegisterEmail),
+		errors.Is(err, services.ErrWeakPassword):
+		return http.StatusBadRequest
+	case errors.Is(err, services.ErrInvalidCredentials):
+		return http.StatusUnauthorized
+	case errors.Is(err, services.ErrEmailAlreadyRegistered):
+		return http.StatusConflict
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 // UpdateUser - Xử lý PUT /api/users/:id

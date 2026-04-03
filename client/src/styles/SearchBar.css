@@ -33,7 +33,7 @@
 }
 
 .input-group input, .input-group select {
-  background-color: rgba(8, 12, 20, 0.8);
+  background-color: var(--input-bg);
   border: 1px solid var(--line-color);
   color: var(--text-main);
   padding: 10px 12px;
@@ -44,6 +44,12 @@
 
 .input-group input:focus, .input-group select:focus {
   border-color: var(--accent-color);
+  background-color: var(--input-focus-bg);
+}
+
+.input-group input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.9;
 }
 
 .search-btn-container {
@@ -65,6 +71,7 @@
 }
 
 .btn-search:hover {
+  background-color: var(--control-hover-bg);
   border-color: var(--accent-color);
   color: var(--accent-color);
 }

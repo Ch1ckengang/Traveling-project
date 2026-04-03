@@ -9,6 +9,31 @@
   --accent-color: #f58a28;
   --border-color: #36445e;
   --primary-color: #f58a28;
+  --bg-layer-top: radial-gradient(1200px 620px at 85% -10%, rgba(245, 138, 40, 0.08), transparent);
+  --bg-layer-left: radial-gradient(900px 540px at -20% 0%, rgba(117, 203, 255, 0.07), transparent);
+  --header-bg: rgba(4, 8, 15, 0.82);
+  --header-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+  --input-bg: rgba(8, 12, 20, 0.8);
+  --input-focus-bg: rgba(7, 10, 18, 0.95);
+  --control-hover-bg: rgba(245, 138, 40, 0.08);
+}
+
+:root[data-theme='light'] {
+  --bg-dark: #eef3fb;
+  --surface-dark: #ffffff;
+  --text-main: #1c2738;
+  --text-muted: #4e5e79;
+  --line-color: #c6d4e7;
+  --accent-color: #cf6f11;
+  --border-color: #c6d4e7;
+  --primary-color: #cf6f11;
+  --bg-layer-top: radial-gradient(1200px 620px at 85% -10%, rgba(239, 162, 69, 0.16), transparent);
+  --bg-layer-left: radial-gradient(900px 540px at -20% 0%, rgba(99, 152, 227, 0.13), transparent);
+  --header-bg: rgba(255, 255, 255, 0.88);
+  --header-shadow: 0 8px 20px rgba(46, 74, 117, 0.12);
+  --input-bg: rgba(240, 246, 255, 0.95);
+  --input-focus-bg: #ffffff;
+  --control-hover-bg: rgba(207, 111, 17, 0.1);
 }
 
 body {
@@ -16,8 +41,8 @@ body {
   padding: 0;
   font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
   background:
-    radial-gradient(1200px 620px at 85% -10%, rgba(245, 138, 40, 0.08), transparent),
-    radial-gradient(900px 540px at -20% 0%, rgba(117, 203, 255, 0.07), transparent),
+    var(--bg-layer-top),
+    var(--bg-layer-left),
     var(--bg-dark);
   color: var(--text-main);
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import axios from 'axios';
 import '../../styles/Profile.css';
 
@@ -15,6 +16,7 @@ import '../../styles/Profile.css';
  */
 const Profile = () => {
   const { user, login } = useAuth();
+  const { theme, isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
   
   // State quản lý form data
@@ -221,6 +223,31 @@ const Profile = () => {
         {success && <div className="success-message">{success}</div>}
 
         <form onSubmit={handleSubmit} className="profile-form">
+          <div className="form-section theme-section">
+            <h3>Giao diện</h3>
+            <div className="theme-mode-row">
+              <div>
+                <p className="theme-mode-title">Chế độ sáng/tối</p>
+                <p className="theme-mode-subtitle">
+                  Chuyển đổi giữa giao diện sáng và tối. Cài đặt được lưu cho lần truy cập sau.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="theme-toggle-btn"
+                onClick={toggleTheme}
+                aria-label="Chuyển chế độ sáng tối"
+                aria-pressed={isDarkMode}
+              >
+                <span className={`theme-toggle-pill ${isDarkMode ? 'is-dark' : 'is-light'}`}>
+                  <span className="theme-toggle-thumb" />
+                </span>
+                <span className="theme-toggle-label">{theme === 'dark' ? 'Đang dùng: Tối' : 'Đang dùng: Sáng'}</span>
+              </button>
+            </div>
+          </div>
+
           <div className="form-section">
             <h3>Thông tin cá nhân</h3>
             

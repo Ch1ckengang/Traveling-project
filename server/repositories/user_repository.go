@@ -1,27 +1,19 @@
 package repositories
 
 import (
+	"errors"
 	"travel-backend/database"
 	"travel-backend/models"
+
+	"gorm.io/gorm"
 )
 
 // UserRepository - Tầng duy nhất được phép nói chuyện với database cho User
 // Giống như "kho nguyên liệu" trong bếp — chỉ biết cách lấy/lưu dữ liệu
 // Không biết gì về HTTP request hay business rules
 
-// FindByEmailAndPassword - Tìm user theo email và password
-// Dùng cho chức năng đăng nhập
-func FindUserByEmailAndPassword(email, password string) (*models.User, error) {
-	var user models.User
-	result := database.DB.Where("email = ? AND password = ?", email, password).First(&user)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return &user, nil
-}
-
 // FindUserByEmail - Tìm user theo email
-// Dùng để kiểm tra email đã tồn tại khi đăng ký
+// Dùng để kiểm tra email đã tồn tại khi đăng ký và lấy hash password khi đăng nhập
 func FindUserByEmail(email string) (*models.User, error) {
 	var user models.User
 	result := database.DB.Where("email = ?", email).First(&user)
@@ -29,6 +21,11 @@ func FindUserByEmail(email string) (*models.User, error) {
 		return nil, result.Error
 	}
 	return &user, nil
+}
+
+// IsNotFoundError - Kiểm tra lỗi không tìm thấy bản ghi
+func IsNotFoundError(err error) bool {
+	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
 // FindUserByID - Tìm user theo ID

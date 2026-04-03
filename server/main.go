@@ -6,6 +6,8 @@ import (
 	"travel-backend/database"
 	"travel-backend/models"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -60,9 +62,15 @@ func seedData() {
 	var userCount int64
 	database.DB.Model(&models.User{}).Count(&userCount)
 	if userCount == 0 {
+		testPasswordHash, err := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+		if err != nil {
+			log.Println("⚠️ Không thể tạo hash mật khẩu mẫu, bỏ qua seed user")
+			return
+		}
+
 		users := []models.User{
-			{Name: "Nguyễn Văn A", Email: "test@example.com", Password: "123456"},
-			{Name: "Trần Thị B", Email: "user@example.com", Password: "123456"},
+			{Name: "Nguyễn Văn A", Email: "test@example.com", Password: string(testPasswordHash)},
+			{Name: "Trần Thị B", Email: "user@example.com", Password: string(testPasswordHash)},
 		}
 		database.DB.Create(&users)
 		log.Println("✅ Đã seed dữ liệu User mẫu")
