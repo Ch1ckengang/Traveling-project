@@ -76,6 +76,84 @@ func Register(c *gin.Context) {
 	})
 }
 
+// SendOTP - Xử lý POST /api/otp/send
+func SendOTP(c *gin.Context) {
+	var req models.OTPSendRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.AuthResponse{
+			Success: false,
+			Message: services.ErrInvalidAuthPayload.Error(),
+		})
+		return
+	}
+
+	if err := services.SendOTPForEmail(req.Email); err != nil {
+		c.JSON(authErrorStatus(err), models.AuthResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.AuthResponse{
+		Success: true,
+		Message: "Mã xác thực đã được gửi",
+	})
+}
+
+// VerifyOTP - Xử lý POST /api/otp/verify
+func VerifyOTP(c *gin.Context) {
+	var req models.OTPVerifyRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.AuthResponse{
+			Success: false,
+			Message: services.ErrInvalidAuthPayload.Error(),
+		})
+		return
+	}
+
+	if err := services.VerifyOTPForEmail(req.Email, req.Code); err != nil {
+		c.JSON(authErrorStatus(err), models.AuthResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.AuthResponse{
+		Success: true,
+		Message: "Xác thực OTP thành công",
+	})
+}
+
+// ForgotPassword - Xử lý POST /api/password/forgot
+func ForgotPassword(c *gin.Context) {
+	var req models.ForgotPasswordRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.AuthResponse{
+			Success: false,
+			Message: services.ErrInvalidAuthPayload.Error(),
+		})
+		return
+	}
+
+	if err := services.RequestPasswordReset(req.Email); err != nil {
+		c.JSON(authErrorStatus(err), models.AuthResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.AuthResponse{
+		Success: true,
+		Message: services.ErrPasswordResetQueued.Error(),
+	})
+}
+
 func authErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, services.ErrInvalidAuthPayload),
@@ -85,6 +163,9 @@ func authErrorStatus(err error) int {
 		return http.StatusBadRequest
 	case errors.Is(err, services.ErrInvalidCredentials):
 		return http.StatusUnauthorized
+	case errors.Is(err, services.ErrInvalidOTPEmail),
+		errors.Is(err, services.ErrInvalidOTPCode):
+		return http.StatusBadRequest
 	case errors.Is(err, services.ErrEmailAlreadyRegistered):
 		return http.StatusConflict
 	default:

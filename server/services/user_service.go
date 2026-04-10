@@ -1,13 +1,29 @@
 package services
 
 import (
+	"crypto/rand"
 	"errors"
+	"fmt"
+	"log"
+	"math/big"
 	"net/mail"
 	"strings"
+	"sync"
+	"time"
 	"travel-backend/models"
 	"travel-backend/repositories"
 
 	"golang.org/x/crypto/bcrypt"
+)
+
+type otpRecord struct {
+	Code      string
+	ExpiresAt time.Time
+}
+
+var (
+	otpStore = map[string]otpRecord{}
+	otpMu    sync.Mutex
 )
 
 // UserService - Tầng chứa business logic cho User
@@ -77,6 +93,83 @@ func Register(name, email, password string) (*models.User, error) {
 	}
 
 	return newUser, nil
+}
+
+// SendOTPForEmail - Tạo mã OTP 6 chữ số cho email hợp lệ
+func SendOTPForEmail(email string) error {
+	email = normalizeEmail(email)
+	if _, err := mail.ParseAddress(email); err != nil {
+		return ErrInvalidOTPEmail
+	}
+
+	code, err := generateOTPCode(6)
+	if err != nil {
+		return ErrOTPProcessFailed
+	}
+
+	otpMu.Lock()
+	otpStore[email] = otpRecord{
+		Code:      code,
+		ExpiresAt: time.Now().Add(3 * time.Minute),
+	}
+	otpMu.Unlock()
+
+	log.Printf("[OTP] Email=%s Code=%s (dev mode)", email, code)
+	return nil
+}
+
+// VerifyOTPForEmail - Kiểm tra mã OTP còn hạn và khớp với email
+func VerifyOTPForEmail(email, code string) error {
+	email = normalizeEmail(email)
+	code = strings.TrimSpace(code)
+
+	if _, err := mail.ParseAddress(email); err != nil {
+		return ErrInvalidOTPEmail
+	}
+
+	if len(code) != 6 {
+		return ErrInvalidOTPCode
+	}
+
+	otpMu.Lock()
+	record, exists := otpStore[email]
+	if !exists {
+		otpMu.Unlock()
+		return ErrInvalidOTPCode
+	}
+
+	if time.Now().After(record.ExpiresAt) {
+		delete(otpStore, email)
+		otpMu.Unlock()
+		return ErrInvalidOTPCode
+	}
+
+	if record.Code != code {
+		otpMu.Unlock()
+		return ErrInvalidOTPCode
+	}
+
+	delete(otpStore, email)
+	otpMu.Unlock()
+	return nil
+}
+
+// RequestPasswordReset - Không tiết lộ email có tồn tại hay không
+func RequestPasswordReset(email string) error {
+	email = normalizeEmail(email)
+	if _, err := mail.ParseAddress(email); err != nil {
+		return ErrInvalidRegisterEmail
+	}
+
+	if _, err := repositories.FindUserByEmail(email); err != nil {
+		if repositories.IsNotFoundError(err) {
+			return nil
+		}
+		return ErrEmailCheckFailed
+	}
+
+	log.Printf("[RESET] Reset requested for email=%s (dev mode)", email)
+	return nil
 }
 
 // UpdateUser - Xử lý logic cập nhật thông tin cá nhân
@@ -156,4 +249,21 @@ func validateRegisterInput(name, email, password string) error {
 	}
 
 	return nil
+}
+
+func generateOTPCode(length int) (string, error) {
+	if length <= 0 {
+		return "", fmt.Errorf("invalid otp length")
+	}
+
+	result := make([]byte, length)
+	for i := 0; i < length; i++ {
+		n, err := rand.Int(rand.Reader, big.NewInt(10))
+		if err != nil {
+			return "", err
+		}
+		result[i] = byte('0' + n.Int64())
+	}
+
+	return string(result), nil
 }

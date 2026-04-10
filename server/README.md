@@ -1,43 +1,59 @@
 # Traveling Backend
 
-Tai lieu nay mo ta backend theo huong nghiep vu va luong xu ly cho tung chuc nang.
+Tài liệu này mô tả kiến trúc backend, nghiệp vụ và luồng hoạt động cho từng chức năng trong hệ thống.
 
-## 1. Tong quan kien truc
+## 1. Tổng quan kiến trúc
 
-Backend dang dung:
+Backend sử dụng:
 - `Gin` cho HTTP API
-- `GORM` cho truy cap DB
-- `SQLite` (file `travel.db`) cho luu tru
+- `GORM` để thao tác dữ liệu
+- `PostgreSQL` để lưu trữ
 
-Kien truc theo 3 tang:
-- `controllers/`: nhan request, goi service, tra response
-- `services/`: xu ly business logic va validate nghiep vu
-- `repositories/`: tuong tac truc tiep voi database
+Thiết kế theo 3 tầng:
+- `controllers/`: nhận request, gọi service, trả response
+- `services/`: xử lý business logic, validate nghiệp vụ
+- `repositories/`: đọc/ghi database
 
-Luong tong quat:
-1. Client goi API.
-2. Controller bind JSON/query va goi service.
-3. Service validate + xu ly nghiep vu + goi repository.
-4. Repository doc/ghi DB.
-5. Controller map loi -> HTTP status va tra JSON.
+Luồng tổng quát:
+1. Client gọi API.
+2. Controller bind JSON/query và chuyển sang service.
+3. Service chuẩn hóa dữ liệu, validate nghiệp vụ, gọi repository.
+4. Repository thao tác DB bằng GORM.
+5. Controller map lỗi sang HTTP status và trả JSON.
 
-## 2. Khoi dong backend
+## 2. Khởi động backend
 
-Tu thu muc `server/`:
+Thiết lập nhanh PostgreSQL + pgAdmin:
+
+```bash
+docker compose -f docker-compose.pgadmin.yml up -d
+```
+
+Thông tin mặc định:
+- PostgreSQL: `localhost:5432` (`postgres` / `123456`)
+- pgAdmin: `http://localhost:5050` (`admin@traveling.local` / `admin123`)
+
+Sau đó tạo file môi trường từ mẫu:
+
+```bash
+cp .env.example .env
+```
+
+Từ thư mục `server/`:
 
 ```bash
 go run main.go
 ```
 
-Server chay tai `http://localhost:8080`.
+Server chạy tại `http://localhost:8080`.
 
-Khi khoi dong:
-1. `database.Connect()` ket noi SQLite (`travel.db`).
-2. `AutoMigrate` tao/cap nhat bang `users`, `tours`, `bookings`.
-3. `seedData()` seed user/tour mau neu bang trong.
-4. Dang ky route duoi prefix `/v1`.
+Khi khởi động, `main.go` thực hiện:
+1. `database.Connect()` kết nối PostgreSQL.
+2. `AutoMigrate` cho các bảng `users`, `tours`, `bookings`.
+3. `seedData()` thêm dữ liệu mẫu khi bảng đang trống.
+4. Đăng ký routes dưới prefix `/v1`.
 
-## 3. Danh sach API
+## 3. Danh sách API
 
 Base path: `/v1`
 
@@ -48,126 +64,283 @@ Base path: `/v1`
 - `POST /api/login`
 - `PUT /api/users/:id`
 
-## 4. Nghiep vu theo tung chuc nang
+## 4. Nghiệp vụ theo từng chức năng
 
-### 4.1 Dang ky tai khoan (`POST /api/register`)
+### 4.1 Đăng ký tài khoản (`POST /api/register`)
 
-File lien quan:
+File liên quan:
 - `controllers/user_controller.go`
 - `services/user_service.go`
 - `repositories/user_repository.go`
 
-Luong xu ly:
-1. Controller bind body vao `RegisterRequest`.
-2. Service chuan hoa input:
-   - `name`: trim space
-   - `email`: trim + lowercase
+Luồng xử lý:
+1. Controller bind body vào `RegisterRequest`.
+2. Service chuẩn hóa input:
+    - `name`: `TrimSpace`
+    - `email`: `TrimSpace + ToLower`
 3. Service validate:
-   - `name` khong duoc rong
-   - `email` dung format
-   - `password` >= 8 ky tu
-4. Service kiem tra email da ton tai chua.
-5. Neu hop le, service hash password bang `bcrypt.GenerateFromPassword`.
-6. Tao user moi qua repository.
-7. Tra ve `AuthResponse` thanh cong (khong tra password vi field password duoc an trong JSON).
+    - tên không rỗng
+    - email đúng định dạng
+    - mật khẩu tối thiểu 8 ký tự
+4. Service kiểm tra email đã tồn tại chưa.
+5. Service hash mật khẩu bằng `bcrypt.GenerateFromPassword`.
+6. Repository tạo user mới trong DB.
+7. Trả `AuthResponse` thành công (không lộ password vì model dùng `json:"-"`).
 
-Loi nghiep vu thuong gap:
-- Email da dang ky -> `409 Conflict`
-- Input khong hop le -> `400 Bad Request`
-- Loi he thong -> `500 Internal Server Error`
+HTTP lỗi điển hình:
+- `400`: dữ liệu không hợp lệ
+- `409`: email đã đăng ký
+- `500`: lỗi hệ thống
 
-### 4.2 Dang nhap (`POST /api/login`)
+Sơ đồ luồng:
 
-File lien quan:
+```mermaid
+sequenceDiagram
+      participant C as Client
+      participant UC as UserController
+      participant US as UserService
+      participant UR as UserRepository
+      participant DB as PostgreSQL
+
+      C->>UC: POST /v1/api/register
+      UC->>US: Register(name, email, password)
+      US->>US: normalize + validate
+      US->>UR: FindUserByEmail(email)
+      UR->>DB: SELECT user by email
+      DB-->>UR: result
+      alt Email đã tồn tại
+         UR-->>US: user found
+         US-->>UC: ErrEmailAlreadyRegistered
+         UC-->>C: 409 Conflict
+      else Email chưa tồn tại
+         US->>US: bcrypt hash password
+         US->>UR: CreateUser(user)
+         UR->>DB: INSERT users
+         DB-->>UR: created
+         UR-->>US: ok
+         US-->>UC: user
+         UC-->>C: 200 OK
+      end
+```
+
+### 4.2 Đăng nhập (`POST /api/login`)
+
+File liên quan:
 - `controllers/user_controller.go`
 - `services/user_service.go`
 - `repositories/user_repository.go`
 
-Luong xu ly:
-1. Controller bind body vao `LoginRequest`.
-2. Service chuan hoa email (`trim + lowercase`) va validate input khong rong.
-3. Service tim user theo email.
-4. Service so sanh password bang `bcrypt.CompareHashAndPassword`.
-5. Neu dung, tra thong tin user.
-6. Neu sai email hoac password, tra 1 thong diep chung de tranh lo user co ton tai hay khong.
+Luồng xử lý:
+1. Controller bind body vào `LoginRequest`.
+2. Service chuẩn hóa email và validate input.
+3. Repository tìm user theo email.
+4. Service so sánh mật khẩu bằng `bcrypt.CompareHashAndPassword`.
+5. Nếu đúng, trả user.
+6. Nếu sai email hoặc password, luôn trả thông điệp chung để tránh lộ thông tin tài khoản.
 
-Loi nghiep vu thuong gap:
-- Sai thong tin dang nhap -> `401 Unauthorized`
-- Input khong hop le -> `400 Bad Request`
-- Loi he thong -> `500 Internal Server Error`
+HTTP lỗi điển hình:
+- `400`: dữ liệu không hợp lệ
+- `401`: email hoặc mật khẩu không đúng
+- `500`: lỗi hệ thống
 
-### 4.3 Cap nhat thong tin user (`PUT /api/users/:id`)
+Sơ đồ luồng:
 
-File lien quan:
+```mermaid
+sequenceDiagram
+      participant C as Client
+      participant UC as UserController
+      participant US as UserService
+      participant UR as UserRepository
+      participant DB as PostgreSQL
+
+      C->>UC: POST /v1/api/login
+      UC->>US: Login(email, password)
+      US->>US: normalize + validate
+      US->>UR: FindUserByEmail(email)
+      UR->>DB: SELECT user by email
+      DB-->>UR: result
+      alt Không tìm thấy user
+         UR-->>US: not found
+         US-->>UC: ErrInvalidCredentials
+         UC-->>C: 401 Unauthorized
+      else Tìm thấy user
+         UR-->>US: user(hashedPassword)
+         US->>US: bcrypt compare password
+         alt Password sai
+            US-->>UC: ErrInvalidCredentials
+            UC-->>C: 401 Unauthorized
+         else Password đúng
+            US-->>UC: user
+            UC-->>C: 200 OK
+         end
+      end
+```
+
+### 4.3 Cập nhật thông tin người dùng (`PUT /api/users/:id`)
+
+File liên quan:
 - `controllers/user_controller.go`
 - `services/user_service.go`
 - `repositories/user_repository.go`
 
-Luong xu ly:
-1. Controller doc `:id` va bind `UpdateUserRequest`.
-2. Service tim user hien tai theo ID.
-3. Neu doi email, kiem tra email moi khong trung user khac.
-4. Chi cap nhat cac truong duoc gui len (`name/email/password`).
-5. Neu co doi password, service hash password bang bcrypt truoc khi luu.
-6. Luu user qua repository.
+Luồng xử lý:
+1. Controller đọc `:id` và bind `UpdateUserRequest`.
+2. Service tìm user hiện tại theo ID.
+3. Nếu đổi email, kiểm tra email mới không trùng tài khoản khác.
+4. Chỉ cập nhật trường được gửi lên (`name`, `email`, `password`).
+5. Nếu có đổi password, hash bằng bcrypt trước khi lưu.
+6. Repository lưu thay đổi bằng `Save`.
 
-### 4.4 Lay danh sach tour (`GET /api/tours`, `GET /api/tours/domestic`)
+Sơ đồ luồng:
 
-File lien quan:
+```mermaid
+sequenceDiagram
+      participant C as Client
+      participant UC as UserController
+      participant US as UserService
+      participant UR as UserRepository
+      participant DB as PostgreSQL
+
+      C->>UC: PUT /v1/api/users/:id
+      UC->>US: UpdateUser(id, payload)
+      US->>UR: FindUserByID(id)
+      UR->>DB: SELECT user by id
+      DB-->>UR: result
+      alt User không tồn tại
+         UR-->>US: error
+         US-->>UC: not found error
+         UC-->>C: 404 Not Found
+      else User tồn tại
+         US->>UR: EmailExistsForOtherUser(newEmail, id)
+         UR->>DB: SELECT conflict email
+         DB-->>UR: result
+         alt Trùng email
+            UR-->>US: true
+            US-->>UC: conflict error
+            UC-->>C: 409 Conflict
+         else Hợp lệ
+            US->>US: hash password nếu có
+            US->>UR: SaveUser(user)
+            UR->>DB: UPDATE users
+            DB-->>UR: updated
+            UC-->>C: 200 OK
+         end
+      end
+```
+
+### 4.4 Lấy danh sách tour (`GET /api/tours`, `GET /api/tours/domestic`)
+
+File liên quan:
 - `controllers/tour_controller.go`
 - `services/tour_service.go`
 - `repositories/tour_repository.go`
 
-Luong xu ly:
-1. Controller dam bao co du lieu tour co ban (`CreateToursIfEmpty`).
-2. Doc query filter (`category`, `q/city`, `duration`, `price`, `sort`).
-3. Service lay danh sach theo category.
-4. Service loc theo thanh pho, thoi luong, gia.
-5. Service sap xep theo query (`price`, `duration`, `name`, `latest`).
-6. Tra ve danh sach tours.
+Luồng xử lý:
+1. Controller đảm bảo luôn có dữ liệu tour cơ bản (`CreateToursIfEmpty`).
+2. Đọc query filter: `category`, `q/city`, `duration`, `price`, `sort`.
+3. Service lấy danh sách theo category.
+4. Service lọc theo thành phố, thời lượng, mức giá.
+5. Service sắp xếp theo tiêu chí (`price`, `duration`, `name`, `latest`).
+6. Trả danh sách tour.
 
-### 4.5 Dat tour (`POST /api/bookings`)
+Sơ đồ luồng:
 
-File lien quan:
+```mermaid
+sequenceDiagram
+      participant C as Client
+      participant TC as TourController
+      participant TS as TourService
+      participant TR as TourRepository
+      participant DB as PostgreSQL
+
+      C->>TC: GET /v1/api/tours?filters
+      TC->>TS: CreateToursIfEmpty()
+      TS->>TR: CreateToursIfEmpty()
+      TR->>DB: check/seed tours if needed
+      TC->>TS: GetToursByFilter(filter)
+      TS->>TR: FindToursByCategory(category)
+      TR->>DB: SELECT tours
+      DB-->>TR: rows
+      TR-->>TS: tours
+      TS->>TS: filter + sort
+      TS-->>TC: filtered tours
+      TC-->>C: 200 OK + tours
+```
+
+### 4.5 Đặt tour (`POST /api/bookings`)
+
+File liên quan:
 - `controllers/booking_controller.go`
 - `services/booking_service.go`
 - `repositories/booking_repository.go`
 
-Luong xu ly:
-1. Controller bind body vao `CreateBookingRequest`.
-2. Service normalize du lieu (`full_name`, `phone`, `email`, `travel_date`, `note`).
+Luồng xử lý:
+1. Controller bind body vào `CreateBookingRequest`.
+2. Service normalize dữ liệu (`full_name`, `phone`, `email`, `travel_date`, `note`).
 3. Service validate:
-   - `tour_id` hop le
-   - `full_name` khong rong
-   - `phone` dung regex
-   - `email` dung format
-   - `quantity > 0`
-   - `travel_date` dung format `YYYY-MM-DD` va khong o qua khu
-4. Service kiem tra tour co ton tai.
-5. Tao booking voi status mac dinh `booked`.
-6. Luu DB qua repository va tra `201 Created`.
+    - `tour_id` hợp lệ
+    - `full_name` không rỗng
+    - `phone` đúng regex
+    - `email` đúng định dạng
+    - `quantity > 0`
+    - `travel_date` đúng định dạng `YYYY-MM-DD`, không ở quá khứ
+4. Service kiểm tra tour tồn tại.
+5. Tạo booking với trạng thái mặc định `booked`.
+6. Repository lưu booking.
+7. Controller trả `201 Created`.
 
-## 5. Rule bao mat chinh
+Sơ đồ luồng:
 
-1. Khong luu plain text password trong DB.
-2. Tat ca password phai duoc hash bang bcrypt truoc khi luu.
-3. Dang nhap chi so sanh bang hash (`CompareHashAndPassword`).
-4. Truong `password` cua `User` khong duoc tra ve JSON response (`json:"-"`).
+```mermaid
+sequenceDiagram
+      participant C as Client
+      participant BC as BookingController
+      participant BS as BookingService
+      participant TR as TourRepository
+      participant BR as BookingRepository
+      participant DB as PostgreSQL
 
-## 6. Cau truc thu muc backend
+      C->>BC: POST /v1/api/bookings
+      BC->>BS: CreateBooking(payload)
+      BS->>BS: normalize + validate
+      BS->>TR: FindTourByID(tourID)
+      TR->>DB: SELECT tour by id
+      DB-->>TR: result
+      alt Tour không tồn tại
+         TR-->>BS: error
+         BS-->>BC: ErrTourNotFound
+         BC-->>C: 404 Not Found
+      else Tour tồn tại
+         BS->>BR: CreateBooking(booking)
+         BR->>DB: INSERT bookings
+         DB-->>BR: created
+         BR-->>BS: ok
+         BS-->>BC: booking
+         BC-->>C: 201 Created
+      end
+```
+
+## 5. Quy tắc bảo mật chính
+
+1. Không lưu mật khẩu dạng plain text trong DB.
+2. Mọi mật khẩu phải hash bằng `bcrypt` trước khi lưu.
+3. Đăng nhập chỉ so sánh hash bằng `CompareHashAndPassword`.
+4. Trường `password` trong model `User` luôn bị ẩn khỏi JSON response (`json:"-"`).
+
+## 6. Cấu trúc thư mục backend
 
 ```text
 server/
-  main.go
-  controllers/
-  services/
-  repositories/
-  models/
-  database/
-  travel.db
+   main.go
+   controllers/
+   services/
+   repositories/
+   models/
+   database/
+   init_database.sql
 ```
 
-## 7. Tai lieu lien quan
+## 7. Tài liệu liên quan
 
-- `server/DATABASE_SETUP.md`: huong dan cau hinh database
-- `server/init_database.sql`: script SQL tham khao
+- `server/DATABASE_SETUP.md`: hướng dẫn cấu hình database
+- `server/init_database.sql`: script SQL tham khảo

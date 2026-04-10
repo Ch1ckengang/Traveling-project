@@ -46,7 +46,12 @@ func GetToursByFilter(filter TourFilter) ([]models.Tour, error) {
 	sortBy := strings.ToLower(filter.Sort)
 
 	filtered := make([]models.Tour, 0, len(tours))
+	category := strings.ToLower(strings.TrimSpace(filter.Category))
 	for _, tour := range tours {
+		if category == "international" && !isInternationalTour(tour) {
+			continue
+		}
+
 		if city != "" && !matchesCity(tour, city) {
 			continue
 		}
@@ -183,6 +188,35 @@ func applySort(tours []models.Tour, sortBy string) {
 			return tours[i].UpdatedAt.After(tours[j].UpdatedAt)
 		})
 	}
+}
+
+func isInternationalTour(tour models.Tour) bool {
+	typeValue := strings.ToLower(strings.TrimSpace(tour.Type))
+	countryNormalized := normalizeCountry(tour.Country)
+	if typeValue != "international" {
+		return false
+	}
+
+	if countryNormalized == "" {
+		return false
+	}
+
+	return !isVietnamCountry(countryNormalized)
+}
+
+func isVietnamCountry(countryNormalized string) bool {
+	switch countryNormalized {
+	case "vietnam", "việtnam":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeCountry(country string) string {
+	normalized := strings.ToLower(strings.TrimSpace(country))
+	normalized = strings.ReplaceAll(normalized, " ", "")
+	return normalized
 }
 
 func compareDuration(left, right string) int {

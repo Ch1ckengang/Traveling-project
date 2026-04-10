@@ -1,7 +1,7 @@
 .profile-container {
   min-height: 80vh;
   padding: 40px 20px;
-  max-width: 800px;
+  max-width: 1120px;
   margin: 0 auto;
 }
 
@@ -9,14 +9,53 @@
   background-color: var(--surface-dark);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 40px;
+  padding: 28px;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+}
+
+.profile-sidebar {
+  border-right: 1px solid var(--border-color);
+  padding-right: 22px;
 }
 
 .profile-header {
   text-align: center;
-  margin-bottom: 40px;
-  padding-bottom: 30px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
   border-bottom: 1px solid var(--border-color);
+}
+
+.profile-content {
+  min-width: 0;
+}
+
+.profile-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-menu-item {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.profile-menu-item:hover {
+  border-color: var(--primary-color);
+}
+
+.profile-menu-item.is-active {
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  border-color: var(--primary-color);
 }
 
 .profile-avatar-large {
@@ -45,7 +84,7 @@
 }
 
 .profile-form {
-  margin-top: 30px;
+  margin-top: 4px;
 }
 
 .form-section {
@@ -257,6 +296,148 @@
   margin-bottom: 20px;
   font-size: 14px;
   text-align: center;
+}
+
+.bookings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.section-head h3 {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.btn-refresh-bookings {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-main);
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-refresh-bookings:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.bookings-placeholder {
+  margin: 0;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-color);
+  color: var(--text-muted);
+}
+
+.bookings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.booking-card {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--surface-dark) 90%, transparent);
+}
+
+.booking-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.booking-card-top h4 {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.booking-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.booking-code {
+  margin: 8px 0 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.booking-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+
+.booking-grid p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.booking-actions-row {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-cancel-booking {
+  border: 1px solid rgba(255, 77, 79, 0.65);
+  background: rgba(255, 77, 79, 0.08);
+  color: #ff7d7f;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-cancel-booking:hover:not(:disabled) {
+  background: rgba(255, 77, 79, 0.16);
+  border-color: #ff7d7f;
+}
+
+.btn-cancel-booking:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .profile-box {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .profile-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding-right: 0;
+    padding-bottom: 16px;
+  }
+
+  .profile-menu {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .booking-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {

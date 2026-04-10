@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"net/http"
-	"travel-backend/models"
 	"travel-backend/services"
 
 	"github.com/gin-gonic/gin"
@@ -16,14 +15,14 @@ func createTours() error {
 	return services.CreateToursIfEmpty()
 }
 
-// getTours - Lấy danh sách tour phục vụ màn hình đặt tour
-func getTours() ([]models.Tour, error) {
-	return services.GetAllTours()
-}
-
-// getDomesticTours - Lấy danh sách tour du lịch trong nước
-func getDomesticTours() ([]models.Tour, error) {
-	return services.GetDomesticTours()
+func buildTourFilter(c *gin.Context, category string) services.TourFilter {
+	return services.TourFilter{
+		Category: category,
+		City:     c.DefaultQuery("city", c.Query("q")),
+		Duration: c.DefaultQuery("duration", "all"),
+		Price:    c.DefaultQuery("price", "all"),
+		Sort:     c.DefaultQuery("sort", "default"),
+	}
 }
 
 // GetTours - Xử lý GET /api/tours
@@ -37,13 +36,7 @@ func GetTours(c *gin.Context) {
 		return
 	}
 
-	filter := services.TourFilter{
-		Category: c.DefaultQuery("category", "all"),
-		City:     c.DefaultQuery("city", c.Query("q")),
-		Duration: c.DefaultQuery("duration", "all"),
-		Price:    c.DefaultQuery("price", "all"),
-		Sort:     c.DefaultQuery("sort", "default"),
-	}
+	filter := buildTourFilter(c, c.DefaultQuery("category", "all"))
 
 	// Gọi helper để lấy danh sách tour
 	tours, err := services.GetToursByFilter(filter)
@@ -69,19 +62,37 @@ func GetDomesticTours(c *gin.Context) {
 		return
 	}
 
-	filter := services.TourFilter{
-		Category: "domestic",
-		City:     c.DefaultQuery("city", c.Query("q")),
-		Duration: c.DefaultQuery("duration", "all"),
-		Price:    c.DefaultQuery("price", "all"),
-		Sort:     c.DefaultQuery("sort", "default"),
-	}
+	filter := buildTourFilter(c, "domestic")
 
 	tours, err := services.GetToursByFilter(filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
 			"message": "Không thể lấy danh sách tour du lịch Việt Nam",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, tours)
+}
+
+// GetInternationalTours - Xử lý GET /api/tours/international
+func GetInternationalTours(c *gin.Context) {
+	if err := createTours(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "Không thể khởi tạo dữ liệu tour",
+		})
+		return
+	}
+
+	filter := buildTourFilter(c, "international")
+
+	tours, err := services.GetToursByFilter(filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "Không thể lấy danh sách tour du lịch quốc tế",
 		})
 		return
 	}

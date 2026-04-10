@@ -58,3 +58,6 @@ description: Define the technical architecture, components, and data models
 - Security requirements
 - Reliability/availability needs
 
+## Related Design Docs
+- `docs/ai/design/frontend-figma-spec-module1.md` - Figma-ready UI/UX spec for Module 1 (Customer), aligned with current project implementation.
+

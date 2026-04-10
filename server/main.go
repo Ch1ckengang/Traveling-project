@@ -20,7 +20,7 @@ import (
 //
 // Tất cả logic đã được chuyển sang đúng tầng của nó
 func main() {
-	// Kết nối đến SQLite database (file travel.db tự động tạo)
+	// Kết nối đến PostgreSQL database
 	database.Connect()
 
 	// Auto migrate: tự động tạo/cập nhật cấu trúc bảng
@@ -42,11 +42,17 @@ func main() {
 		// Tour routes
 		v1.GET("/api/tours", controllers.GetTours)
 		v1.GET("/api/tours/domestic", controllers.GetDomesticTours)
+		v1.GET("/api/tours/international", controllers.GetInternationalTours)
 		v1.POST("/api/bookings", controllers.CreateBooking)
+		v1.GET("/api/users/:id/bookings", controllers.GetUserBookings)
+		v1.PUT("/api/users/:id/bookings/:bookingId/cancel", controllers.CancelBooking)
 
 		// User routes
 		v1.POST("/api/login", controllers.Login)
 		v1.POST("/api/register", controllers.Register)
+		v1.POST("/api/otp/send", controllers.SendOTP)
+		v1.POST("/api/otp/verify", controllers.VerifyOTP)
+		v1.POST("/api/password/forgot", controllers.ForgotPassword)
 		v1.PUT("/api/users/:id", controllers.UpdateUser)
 	}
 

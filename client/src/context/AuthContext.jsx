@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useState, useContext } from 'react';
 
 // Tạo Context cho quản lý authentication toàn cục
 const AuthContext = createContext(null);
@@ -10,20 +10,13 @@ const AuthContext = createContext(null);
  */
 export const AuthProvider = ({ children }) => {
   // State lưu thông tin user (id, name, email)
-  const [user, setUser] = useState(null);
-  // State đánh dấu user đã đăng nhập hay chưa
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  // Kiểm tra localStorage khi component mount (load trang)
-  // Nếu có thông tin user đã lưu -> khôi phục trạng thái đăng nhập
-  useEffect(() => {
+  const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setUser(userData);
-      setIsLoggedIn(true);
-    }
-  }, []);
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
+  // Trạng thái đăng nhập được suy ra trực tiếp từ user
+  const isLoggedIn = Boolean(user);
 
   /**
    * login - Hàm xử lý khi user đăng nhập thành công
@@ -32,7 +25,6 @@ export const AuthProvider = ({ children }) => {
    */
   const login = (userData) => {
     setUser(userData);
-    setIsLoggedIn(true);
     // Lưu vào localStorage để giữ session khi refresh
     localStorage.setItem('user', JSON.stringify(userData));
   };
@@ -43,7 +35,6 @@ export const AuthProvider = ({ children }) => {
    */
   const logout = () => {
     setUser(null);
-    setIsLoggedIn(false);
     localStorage.removeItem('user');
   };
 
@@ -60,6 +51,7 @@ export const AuthProvider = ({ children }) => {
  * Sử dụng: const { user, isLoggedIn, login, logout } = useAuth();
  * @returns {Object} - {user, isLoggedIn, login, logout}
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

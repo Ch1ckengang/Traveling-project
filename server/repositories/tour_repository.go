@@ -4,6 +4,8 @@ import (
 	"strings"
 	"travel-backend/database"
 	"travel-backend/models"
+
+	"gorm.io/gorm"
 )
 
 // TourRepository - Tầng duy nhất được phép nói chuyện với database cho Tour
@@ -16,6 +18,7 @@ func FindAllTours() ([]models.Tour, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
+	normalizeTourSlots(tours)
 	return tours, nil
 }
 
@@ -26,6 +29,7 @@ func FindDomesticTours() ([]models.Tour, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
+	normalizeTourSlots(tours)
 	return tours, nil
 }
 
@@ -36,9 +40,22 @@ func FindToursByCategory(category string) ([]models.Tour, error) {
 
 	switch strings.ToLower(category) {
 	case "domestic":
-		query = query.Where("type = ? OR country = ? OR country = ? OR country = ''", "domestic", "Việt Nam", "Vietnam")
+		query = query.Where(
+			"LOWER(TRIM(type)) = ? OR LOWER(REPLACE(TRIM(country), ' ', '')) IN (?, ?, ?) OR TRIM(country) = ''",
+			"domestic",
+			"vietnam",
+			"vietnam",
+			"việtnam",
+		)
 	case "international":
-		query = query.Where("type = ? OR (country <> ? AND country <> ? AND country <> '')", "international", "Việt Nam", "Vietnam")
+		// Chỉ lấy tour quốc tế và loại trừ rõ ràng các tour Việt Nam.
+		query = query.Where(
+			"LOWER(TRIM(type)) = ? AND LOWER(REPLACE(TRIM(country), ' ', '')) NOT IN (?, ?, ?) AND TRIM(country) <> ''",
+			"international",
+			"vietnam",
+			"vietnam",
+			"việtnam",
+		)
 	case "service":
 		query = query.Where("type = ?", "service")
 	}
@@ -46,6 +63,8 @@ func FindToursByCategory(category string) ([]models.Tour, error) {
 	if err := query.Find(&tours).Error; err != nil {
 		return nil, err
 	}
+
+	normalizeTourSlots(tours)
 
 	return tours, nil
 }
@@ -56,7 +75,46 @@ func FindTourByID(id uint) (*models.Tour, error) {
 	if err := database.DB.First(&tour, id).Error; err != nil {
 		return nil, err
 	}
+
+	if tour.RemainingSlots <= 0 {
+		tour.RemainingSlots = 30
+	}
+
 	return &tour, nil
+}
+
+func normalizeTourSlots(tours []models.Tour) {
+	for i := range tours {
+		if tours[i].RemainingSlots <= 0 {
+			tours[i].RemainingSlots = 30
+		}
+	}
+}
+
+// DecreaseTourRemainingSlots - Trừ số chỗ còn lại sau khi tạo booking.
+func DecreaseTourRemainingSlots(tourID uint, seats int) error {
+	if seats <= 0 {
+		return nil
+	}
+
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		var tour models.Tour
+		if err := tx.First(&tour, tourID).Error; err != nil {
+			return err
+		}
+
+		remaining := tour.RemainingSlots
+		if remaining <= 0 {
+			remaining = 30
+		}
+
+		if remaining < seats {
+			return gorm.ErrInvalidData
+		}
+
+		tour.RemainingSlots = remaining - seats
+		return tx.Save(&tour).Error
+	})
 }
 
 // CreateToursIfEmpty - Tạo dữ liệu tour mẫu nếu bảng tours đang trống
