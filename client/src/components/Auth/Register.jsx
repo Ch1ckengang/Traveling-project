@@ -65,6 +65,11 @@ const Register = () => {
       return;
     }
 
+    if (!normalizedEmail.endsWith('@gmail.com')) {
+      setError('Email đăng ký phải có đuôi @gmail.com.');
+      return;
+    }
+
     // Kiểm tra mật khẩu khớp
     if (normalizedPassword !== formData.confirmPassword) {
       setError('Mật khẩu xác nhận không khớp');
@@ -92,9 +97,10 @@ const Register = () => {
       });
 
       if (response.data.success) {
-        navigate('/login', {
+        navigate('/otp-verification', {
           state: {
-            message: 'Đăng ký thành công. Bạn có thể đăng nhập ngay.'
+            email: normalizedEmail,
+            message: response.data.message || 'Đăng ký thành công. Vui lòng nhập mã OTP đã gửi về email để xác thực.'
           }
         });
       }
@@ -131,7 +137,7 @@ const Register = () => {
             name="email"
             value={formData.email}
             onChange={handleChange}
-            placeholder="name@example.com"
+            placeholder="name@gmail.com"
             required
           />
         </div>

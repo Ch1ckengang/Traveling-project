@@ -8,6 +8,7 @@ import Header from './components/Layout/Header';
 import SearchBar from './components/Home/SearchBar';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
+import OtpVerification from './components/Auth/OtpVerification';
 import ForgotPassword from './components/Auth/ForgotPassword';
 import ResetSuccess from './components/Auth/ResetSuccess';
 import Profile from './components/Profile/Profile';
@@ -460,6 +461,7 @@ function AppShell() {
         <Route path="/dichvu" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/otp-verification" element={<OtpVerification />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-success" element={<ResetSuccess />} />
         <Route path="/profile" element={<Profile />} />

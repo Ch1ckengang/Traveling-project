@@ -1,10 +1,10 @@
-package repositories
+package booking
 
 import (
 	"errors"
 	"strings"
 	"travel-backend/database"
-	"travel-backend/models"
+	"travel-backend/domain"
 
 	"gorm.io/gorm"
 )
@@ -12,13 +12,13 @@ import (
 var ErrBookingAlreadyCancelled = errors.New("booking already cancelled")
 
 // CreateBooking - Tạo bản ghi đặt tour mới
-func CreateBooking(booking *models.Booking) error {
+func createBookingRecord(booking *domain.Booking) error {
 	return database.DB.Create(booking).Error
 }
 
 // FindBookingsByUserID - Lấy danh sách tour đã đặt theo user
-func FindBookingsByUserID(userID uint) ([]models.Booking, error) {
-	var bookings []models.Booking
+func FindBookingsByUserID(userID uint) ([]domain.Booking, error) {
+	var bookings []domain.Booking
 	err := database.DB.
 		Preload("Tour").
 		Where("user_id = ?", userID).
@@ -33,8 +33,8 @@ func FindBookingsByUserID(userID uint) ([]models.Booking, error) {
 }
 
 // CancelBookingByUserID - Hủy booking của đúng người dùng và hoàn lại số chỗ cho tour.
-func CancelBookingByUserID(userID, bookingID uint) (*models.Booking, error) {
-	var booking models.Booking
+func cancelBookingByUserID(userID, bookingID uint) (*domain.Booking, error) {
+	var booking domain.Booking
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("id = ? AND user_id = ?", bookingID, userID).First(&booking).Error; err != nil {
@@ -52,7 +52,7 @@ func CancelBookingByUserID(userID, bookingID uint) (*models.Booking, error) {
 			return err
 		}
 
-		var tour models.Tour
+		var tour domain.Tour
 		if err := tx.First(&tour, booking.TourID).Error; err != nil {
 			return err
 		}

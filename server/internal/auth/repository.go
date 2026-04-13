@@ -1,9 +1,9 @@
-package repositories
+package auth
 
 import (
 	"errors"
 	"travel-backend/database"
-	"travel-backend/models"
+	"travel-backend/domain"
 
 	"gorm.io/gorm"
 )
@@ -14,8 +14,8 @@ import (
 
 // FindUserByEmail - Tìm user theo email
 // Dùng để kiểm tra email đã tồn tại khi đăng ký và lấy hash password khi đăng nhập
-func FindUserByEmail(email string) (*models.User, error) {
-	var user models.User
+func FindUserByEmail(email string) (*domain.User, error) {
+	var user domain.User
 	result := database.DB.Where("email = ?", email).First(&user)
 	if result.Error != nil {
 		return nil, result.Error
@@ -30,8 +30,8 @@ func IsNotFoundError(err error) bool {
 
 // FindUserByID - Tìm user theo ID
 // Dùng để lấy thông tin user trước khi cập nhật
-func FindUserByID(id string) (*models.User, error) {
-	var user models.User
+func FindUserByID(id string) (*domain.User, error) {
+	var user domain.User
 	result := database.DB.First(&user, id)
 	if result.Error != nil {
 		return nil, result.Error
@@ -42,17 +42,17 @@ func FindUserByID(id string) (*models.User, error) {
 // EmailExistsForOtherUser - Kiểm tra email đã được dùng bởi user khác chưa
 // Dùng khi cập nhật email: không được trùng với user khác (trừ chính mình)
 func EmailExistsForOtherUser(email, currentUserID string) bool {
-	var existingUser models.User
+	var existingUser domain.User
 	result := database.DB.Where("email = ? AND id != ?", email, currentUserID).First(&existingUser)
 	return result.Error == nil // nil error = tìm thấy = email đã tồn tại
 }
 
 // CreateUser - Tạo user mới trong database
-func CreateUser(user *models.User) error {
+func CreateUser(user *domain.User) error {
 	return database.DB.Create(user).Error
 }
 
 // SaveUser - Lưu (cập nhật) thông tin user vào database
-func SaveUser(user *models.User) error {
+func SaveUser(user *domain.User) error {
 	return database.DB.Save(user).Error
 }

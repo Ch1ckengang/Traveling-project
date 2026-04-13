@@ -2,9 +2,11 @@ package main
 
 import (
 	"log"
-	"travel-backend/controllers"
 	"travel-backend/database"
-	"travel-backend/models"
+	"travel-backend/domain"
+	"travel-backend/internal/auth"
+	"travel-backend/internal/booking"
+	"travel-backend/internal/tour"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -24,7 +26,7 @@ func main() {
 	database.Connect()
 
 	// Auto migrate: tự động tạo/cập nhật cấu trúc bảng
-	database.DB.AutoMigrate(&models.User{}, &models.Tour{}, &models.Booking{})
+	database.DB.AutoMigrate(&domain.User{}, &domain.Tour{}, &domain.Booking{})
 
 	// Seed dữ liệu mẫu vào database nếu chưa có data
 	seedData()
@@ -40,20 +42,20 @@ func main() {
 	v1 := r.Group("/v1")
 	{
 		// Tour routes
-		v1.GET("/api/tours", controllers.GetTours)
-		v1.GET("/api/tours/domestic", controllers.GetDomesticTours)
-		v1.GET("/api/tours/international", controllers.GetInternationalTours)
-		v1.POST("/api/bookings", controllers.CreateBooking)
-		v1.GET("/api/users/:id/bookings", controllers.GetUserBookings)
-		v1.PUT("/api/users/:id/bookings/:bookingId/cancel", controllers.CancelBooking)
+		v1.GET("/api/tours", tour.GetToursHandler)
+		v1.GET("/api/tours/domestic", tour.GetDomesticToursHandler)
+		v1.GET("/api/tours/international", tour.GetInternationalToursHandler)
+		v1.POST("/api/bookings", booking.CreateBookingHandler)
+		v1.GET("/api/users/:id/bookings", booking.GetUserBookingsHandler)
+		v1.PUT("/api/users/:id/bookings/:bookingId/cancel", booking.CancelBookingHandler)
 
 		// User routes
-		v1.POST("/api/login", controllers.Login)
-		v1.POST("/api/register", controllers.Register)
-		v1.POST("/api/otp/send", controllers.SendOTP)
-		v1.POST("/api/otp/verify", controllers.VerifyOTP)
-		v1.POST("/api/password/forgot", controllers.ForgotPassword)
-		v1.PUT("/api/users/:id", controllers.UpdateUser)
+		v1.POST("/api/login", auth.LoginHandler)
+		v1.POST("/api/register", auth.RegisterHandler)
+		v1.POST("/api/otp/send", auth.SendOTPHandler)
+		v1.POST("/api/otp/verify", auth.VerifyOTPHandler)
+		v1.POST("/api/password/forgot", auth.ForgotPasswordHandler)
+		v1.PUT("/api/users/:id", auth.UpdateUserHandler)
 	}
 
 	// Khởi động server HTTP trên port 8080
@@ -66,7 +68,7 @@ func main() {
 func seedData() {
 	// Seed Users mẫu nếu bảng còn trống
 	var userCount int64
-	database.DB.Model(&models.User{}).Count(&userCount)
+	database.DB.Model(&domain.User{}).Count(&userCount)
 	if userCount == 0 {
 		testPasswordHash, err := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
 		if err != nil {
@@ -74,9 +76,9 @@ func seedData() {
 			return
 		}
 
-		users := []models.User{
-			{Name: "Nguyễn Văn A", Email: "test@example.com", Password: string(testPasswordHash)},
-			{Name: "Trần Thị B", Email: "user@example.com", Password: string(testPasswordHash)},
+		users := []domain.User{
+			{Name: "Nguyễn Văn A", Email: "test@example.com", Password: string(testPasswordHash), IsEmailVerified: true},
+			{Name: "Trần Thị B", Email: "user@example.com", Password: string(testPasswordHash), IsEmailVerified: true},
 		}
 		database.DB.Create(&users)
 		log.Println("✅ Đã seed dữ liệu User mẫu")
@@ -84,9 +86,9 @@ func seedData() {
 
 	// Seed Tours mẫu nếu bảng còn trống
 	var tourCount int64
-	database.DB.Model(&models.Tour{}).Count(&tourCount)
+	database.DB.Model(&domain.Tour{}).Count(&tourCount)
 	if tourCount == 0 {
-		tours := []models.Tour{
+		tours := []domain.Tour{
 			{Name: "Tour Đà Nẵng - Hội An", Type: "domestic", Price: "2.000.000đ", Location: "Đà Nẵng", Country: "Việt Nam", Duration: "3 ngày 2 đêm", Description: "Khám phá phố cổ Hội An và biển Mỹ Khê."},
 			{Name: "Tour Hà Nội - Sa Pa", Type: "domestic", Price: "3.500.000đ", Location: "Hà Nội", Country: "Việt Nam", Duration: "4 ngày 3 đêm", Description: "Trải nghiệm khí hậu vùng cao và bản làng Tây Bắc."},
 			{Name: "Tour Phú Quốc", Type: "domestic", Price: "5.000.000đ", Location: "Phú Quốc", Country: "Việt Nam", Duration: "5 ngày 4 đêm", Description: "Nghỉ dưỡng biển đảo và thưởng thức hải sản địa phương."},

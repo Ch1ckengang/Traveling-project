@@ -1,19 +1,22 @@
-package services
+package shared
 
 import "errors"
 
 var (
 	ErrInvalidAuthPayload     = errors.New("Dữ liệu đăng nhập không hợp lệ")
 	ErrInvalidCredentials     = errors.New("Email hoặc mật khẩu không đúng")
+	ErrEmailNotVerified       = errors.New("Email chưa được xác thực. Vui lòng nhập mã OTP đã gửi về email đăng ký")
 	ErrLoginProcessFailed     = errors.New("Không thể xử lý đăng nhập")
 	ErrInvalidName            = errors.New("Họ tên không được để trống")
 	ErrInvalidRegisterEmail   = errors.New("Email không hợp lệ")
+	ErrRegisterEmailMustGmail = errors.New("Email đăng ký phải có đuôi @gmail.com")
 	ErrWeakPassword           = errors.New("Mật khẩu phải có ít nhất 8 ký tự")
 	ErrEmailAlreadyRegistered = errors.New("Email đã được đăng ký")
 	ErrEmailCheckFailed       = errors.New("Không thể xác thực email")
 	ErrPasswordHashFailed     = errors.New("Không thể bảo mật mật khẩu")
 	ErrCreateAccountFailed    = errors.New("Không thể tạo tài khoản")
 	ErrInvalidOTPEmail        = errors.New("Email OTP không hợp lệ")
+	ErrOTPEmailNotRegistered  = errors.New("Email này chưa được đăng ký")
 	ErrOTPProcessFailed       = errors.New("Không thể xử lý mã xác thực")
 	ErrInvalidOTPCode         = errors.New("Mã xác thực không hợp lệ hoặc đã hết hạn")
 	ErrPasswordResetQueued    = errors.New("Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu")

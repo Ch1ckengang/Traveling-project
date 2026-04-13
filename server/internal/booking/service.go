@@ -1,4 +1,4 @@
-package services
+package booking
 
 import (
 	"errors"
@@ -8,8 +8,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"travel-backend/models"
-	"travel-backend/repositories"
+	"travel-backend/domain"
+	"travel-backend/internal/shared"
+	tourmodule "travel-backend/internal/tour"
 	"unicode"
 
 	"gorm.io/gorm"
@@ -18,26 +19,26 @@ import (
 var phoneRegexp = regexp.MustCompile(`^[0-9+\-\s]{8,20}$`)
 
 // CreateBooking - Xử lý nghiệp vụ đặt tour
-func CreateBooking(req models.CreateBookingRequest) (*models.Booking, error) {
+func CreateBooking(req domain.CreateBookingRequest) (*domain.Booking, error) {
 	normalizedReq := normalizeBookingRequest(req)
 
 	if err := validateBookingRequest(normalizedReq); err != nil {
 		return nil, err
 	}
 
-	tour, err := repositories.FindTourByID(normalizedReq.TourID)
+	tour, err := tourmodule.FindTourByID(normalizedReq.TourID)
 	if err != nil {
-		return nil, ErrTourNotFound
+		return nil, shared.ErrTourNotFound
 	}
 
 	if normalizedReq.Quantity > tour.RemainingSlots {
-		return nil, ErrInsufficientSlots
+		return nil, shared.ErrInsufficientSlots
 	}
 
 	totalAmount := calculateBookingTotal(extractPriceAmount(tour.Price), normalizedReq.AdultCount, normalizedReq.ChildCount)
 	bookingCode := generateBookingCode()
 
-	booking := &models.Booking{
+	booking := &domain.Booking{
 		UserID:        normalizedReq.UserID,
 		TourID:        normalizedReq.TourID,
 		FullName:      normalizedReq.FullName,
@@ -55,64 +56,64 @@ func CreateBooking(req models.CreateBookingRequest) (*models.Booking, error) {
 		Status:        "pending_payment",
 	}
 
-	if err := repositories.CreateBooking(booking); err != nil {
-		return nil, ErrCreateBookingFailed
+	if err := createBookingRecord(booking); err != nil {
+		return nil, shared.ErrCreateBookingFailed
 	}
 
-	if err := repositories.DecreaseTourRemainingSlots(normalizedReq.TourID, normalizedReq.Quantity); err != nil {
+	if err := tourmodule.DecreaseTourRemainingSlots(normalizedReq.TourID, normalizedReq.Quantity); err != nil {
 		if err == gorm.ErrInvalidData {
-			return nil, ErrInsufficientSlots
+			return nil, shared.ErrInsufficientSlots
 		}
-		return nil, ErrCreateBookingFailed
+		return nil, shared.ErrCreateBookingFailed
 	}
 
 	return booking, nil
 }
 
 // GetBookingsByUserID - Lấy lịch sử tour đã đặt của người dùng
-func GetBookingsByUserID(userID string) ([]models.Booking, error) {
+func GetBookingsByUserID(userID string) ([]domain.Booking, error) {
 	parsedUserID, err := strconv.ParseUint(userID, 10, 32)
 	if err != nil || parsedUserID == 0 {
-		return nil, ErrInvalidUserID
+		return nil, shared.ErrInvalidUserID
 	}
 
-	bookings, err := repositories.FindBookingsByUserID(uint(parsedUserID))
+	bookings, err := FindBookingsByUserID(uint(parsedUserID))
 	if err != nil {
-		return nil, ErrFetchBookingsFailed
+		return nil, shared.ErrFetchBookingsFailed
 	}
 
 	return bookings, nil
 }
 
 // CancelBookingByUserID - Hủy tour đã đặt theo user và booking id.
-func CancelBookingByUserID(userID, bookingID string) (*models.Booking, error) {
+func CancelBookingByUserID(userID, bookingID string) (*domain.Booking, error) {
 	parsedUserID, err := strconv.ParseUint(userID, 10, 32)
 	if err != nil || parsedUserID == 0 {
-		return nil, ErrInvalidUserID
+		return nil, shared.ErrInvalidUserID
 	}
 
 	parsedBookingID, err := strconv.ParseUint(bookingID, 10, 32)
 	if err != nil || parsedBookingID == 0 {
-		return nil, ErrInvalidBookingID
+		return nil, shared.ErrInvalidBookingID
 	}
 
-	booking, err := repositories.CancelBookingByUserID(uint(parsedUserID), uint(parsedBookingID))
+	booking, err := cancelBookingByUserID(uint(parsedUserID), uint(parsedBookingID))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrBookingNotFound
+			return nil, shared.ErrBookingNotFound
 		}
 
-		if errors.Is(err, repositories.ErrBookingAlreadyCancelled) {
-			return nil, ErrBookingCannotCancel
+		if errors.Is(err, ErrBookingAlreadyCancelled) {
+			return nil, shared.ErrBookingCannotCancel
 		}
 
-		return nil, ErrCancelBookingFailed
+		return nil, shared.ErrCancelBookingFailed
 	}
 
 	return booking, nil
 }
 
-func normalizeBookingRequest(req models.CreateBookingRequest) models.CreateBookingRequest {
+func normalizeBookingRequest(req domain.CreateBookingRequest) domain.CreateBookingRequest {
 	req.FullName = strings.TrimSpace(req.FullName)
 	req.Phone = strings.TrimSpace(req.Phone)
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
@@ -128,47 +129,47 @@ func normalizeBookingRequest(req models.CreateBookingRequest) models.CreateBooki
 	return req
 }
 
-func validateBookingRequest(req models.CreateBookingRequest) error {
+func validateBookingRequest(req domain.CreateBookingRequest) error {
 	if req.TourID == 0 {
-		return ErrInvalidBookingPayload
+		return shared.ErrInvalidBookingPayload
 	}
 
 	if req.FullName == "" {
-		return ErrInvalidFullName
+		return shared.ErrInvalidFullName
 	}
 
 	if !phoneRegexp.MatchString(req.Phone) {
-		return ErrInvalidPhone
+		return shared.ErrInvalidPhone
 	}
 
 	if _, err := mail.ParseAddress(req.Email); err != nil {
-		return ErrInvalidEmail
+		return shared.ErrInvalidEmail
 	}
 
 	if req.AdultCount < 1 {
-		return ErrInvalidAdultCount
+		return shared.ErrInvalidAdultCount
 	}
 
 	if req.ChildCount < 0 {
-		return ErrInvalidChildCount
+		return shared.ErrInvalidChildCount
 	}
 
 	if req.InfantCount < 0 {
-		return ErrInvalidInfantCount
+		return shared.ErrInvalidInfantCount
 	}
 
 	if req.Quantity <= 0 {
-		return ErrInvalidQuantity
+		return shared.ErrInvalidQuantity
 	}
 
 	travelDate, err := time.Parse("2006-01-02", req.TravelDate)
 	if err != nil {
-		return ErrInvalidTravelDate
+		return shared.ErrInvalidTravelDate
 	}
 
 	startOfToday := time.Now().Truncate(24 * time.Hour)
 	if travelDate.Before(startOfToday) {
-		return ErrTravelDateInPast
+		return shared.ErrTravelDateInPast
 	}
 
 	return nil

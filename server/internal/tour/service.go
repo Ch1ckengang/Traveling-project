@@ -1,12 +1,11 @@
-package services
+package tour
 
 import (
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"travel-backend/models"
-	"travel-backend/repositories"
+	"travel-backend/domain"
 	"unicode"
 )
 
@@ -15,13 +14,13 @@ import (
 // nhưng sau này có thể thêm logic: lọc tour, sắp xếp, phân trang, v.v.
 
 // GetAllTours - Lấy danh sách tất cả các tour
-func GetAllTours() ([]models.Tour, error) {
-	return repositories.FindAllTours()
+func GetAllTours() ([]domain.Tour, error) {
+	return FindAllTours()
 }
 
 // GetDomesticTours - Lấy danh sách tour du lịch Việt Nam
-func GetDomesticTours() ([]models.Tour, error) {
-	return repositories.FindDomesticTours()
+func GetDomesticTours() ([]domain.Tour, error) {
+	return FindDomesticTours()
 }
 
 // TourFilter - Bộ lọc nghiệp vụ cho danh sách tour.
@@ -34,8 +33,8 @@ type TourFilter struct {
 }
 
 // GetToursByFilter - Lấy tour theo category và lọc nghiệp vụ từ ô tìm kiếm.
-func GetToursByFilter(filter TourFilter) ([]models.Tour, error) {
-	tours, err := repositories.FindToursByCategory(filter.Category)
+func GetToursByFilter(filter TourFilter) ([]domain.Tour, error) {
+	tours, err := FindToursByCategory(filter.Category)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +44,7 @@ func GetToursByFilter(filter TourFilter) ([]models.Tour, error) {
 	price := strings.ToLower(filter.Price)
 	sortBy := strings.ToLower(filter.Sort)
 
-	filtered := make([]models.Tour, 0, len(tours))
+	filtered := make([]domain.Tour, 0, len(tours))
 	category := strings.ToLower(strings.TrimSpace(filter.Category))
 	for _, tour := range tours {
 		if category == "international" && !isInternationalTour(tour) {
@@ -74,10 +73,10 @@ func GetToursByFilter(filter TourFilter) ([]models.Tour, error) {
 
 // CreateToursIfEmpty - Seed tour mẫu khi hệ thống chưa có tour nào
 func CreateToursIfEmpty() error {
-	return repositories.CreateToursIfEmpty()
+	return seedToursIfEmpty()
 }
 
-func matchesCity(tour models.Tour, cityQuery string) bool {
+func matchesCity(tour domain.Tour, cityQuery string) bool {
 	location := strings.ToLower(tour.Location)
 	name := strings.ToLower(tour.Name)
 	return strings.Contains(location, cityQuery) || strings.Contains(name, cityQuery)
@@ -154,7 +153,7 @@ func extractPrice(text string) int {
 	return amount
 }
 
-func applySort(tours []models.Tour, sortBy string) {
+func applySort(tours []domain.Tour, sortBy string) {
 	switch sortBy {
 	case "price_asc":
 		sort.SliceStable(tours, func(i, j int) bool {
@@ -190,7 +189,7 @@ func applySort(tours []models.Tour, sortBy string) {
 	}
 }
 
-func isInternationalTour(tour models.Tour) bool {
+func isInternationalTour(tour domain.Tour) bool {
 	typeValue := strings.ToLower(strings.TrimSpace(tour.Type))
 	countryNormalized := normalizeCountry(tour.Country)
 	if typeValue != "international" {

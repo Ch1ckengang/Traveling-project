@@ -1,9 +1,9 @@
-package repositories
+package tour
 
 import (
 	"strings"
 	"travel-backend/database"
-	"travel-backend/models"
+	"travel-backend/domain"
 
 	"gorm.io/gorm"
 )
@@ -12,8 +12,8 @@ import (
 // Chỉ biết cách lấy/lưu dữ liệu Tour — không biết gì về HTTP hay business logic
 
 // FindAllTours - Lấy tất cả tours từ database
-func FindAllTours() ([]models.Tour, error) {
-	var tours []models.Tour
+func FindAllTours() ([]domain.Tour, error) {
+	var tours []domain.Tour
 	result := database.DB.Find(&tours)
 	if result.Error != nil {
 		return nil, result.Error
@@ -23,8 +23,8 @@ func FindAllTours() ([]models.Tour, error) {
 }
 
 // FindDomesticTours - Lấy danh sách tour du lịch trong nước (Việt Nam)
-func FindDomesticTours() ([]models.Tour, error) {
-	var tours []models.Tour
+func FindDomesticTours() ([]domain.Tour, error) {
+	var tours []domain.Tour
 	result := database.DB.Where("type = ? OR country = ? OR country = ? OR country = ''", "domestic", "Việt Nam", "Vietnam").Find(&tours)
 	if result.Error != nil {
 		return nil, result.Error
@@ -34,8 +34,8 @@ func FindDomesticTours() ([]models.Tour, error) {
 }
 
 // FindToursByCategory - Lấy danh sách tour theo nhóm nghiệp vụ trên menu
-func FindToursByCategory(category string) ([]models.Tour, error) {
-	var tours []models.Tour
+func FindToursByCategory(category string) ([]domain.Tour, error) {
+	var tours []domain.Tour
 	query := database.DB
 
 	switch strings.ToLower(category) {
@@ -70,8 +70,8 @@ func FindToursByCategory(category string) ([]models.Tour, error) {
 }
 
 // FindTourByID - Tìm tour theo id
-func FindTourByID(id uint) (*models.Tour, error) {
-	var tour models.Tour
+func FindTourByID(id uint) (*domain.Tour, error) {
+	var tour domain.Tour
 	if err := database.DB.First(&tour, id).Error; err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func FindTourByID(id uint) (*models.Tour, error) {
 	return &tour, nil
 }
 
-func normalizeTourSlots(tours []models.Tour) {
+func normalizeTourSlots(tours []domain.Tour) {
 	for i := range tours {
 		if tours[i].RemainingSlots <= 0 {
 			tours[i].RemainingSlots = 30
@@ -98,7 +98,7 @@ func DecreaseTourRemainingSlots(tourID uint, seats int) error {
 	}
 
 	return database.DB.Transaction(func(tx *gorm.DB) error {
-		var tour models.Tour
+		var tour domain.Tour
 		if err := tx.First(&tour, tourID).Error; err != nil {
 			return err
 		}
@@ -118,12 +118,12 @@ func DecreaseTourRemainingSlots(tourID uint, seats int) error {
 }
 
 // CreateToursIfEmpty - Tạo dữ liệu tour mẫu nếu bảng tours đang trống
-func CreateToursIfEmpty() error {
-	if err := database.DB.AutoMigrate(&models.Tour{}); err != nil {
+func seedToursIfEmpty() error {
+	if err := database.DB.AutoMigrate(&domain.Tour{}); err != nil {
 		return err
 	}
 
-	tours := []models.Tour{
+	tours := []domain.Tour{
 		{Name: "Tour Đà Nẵng - Hội An", Type: "domestic", Price: "2.000.000đ", Location: "Đà Nẵng", Country: "Việt Nam", Duration: "3 ngày 2 đêm", Description: "Khám phá phố cổ Hội An và biển Mỹ Khê."},
 		{Name: "Tour Hà Nội - Sa Pa", Type: "domestic", Price: "3.500.000đ", Location: "Hà Nội", Country: "Việt Nam", Duration: "4 ngày 3 đêm", Description: "Trải nghiệm khí hậu vùng cao và bản làng Tây Bắc."},
 		{Name: "Tour Phú Quốc", Type: "domestic", Price: "5.000.000đ", Location: "Phú Quốc", Country: "Việt Nam", Duration: "5 ngày 4 đêm", Description: "Nghỉ dưỡng biển đảo và thưởng thức hải sản địa phương."},
@@ -142,12 +142,12 @@ func CreateToursIfEmpty() error {
 
 	for _, tour := range tours {
 		var exists int64
-		if err := database.DB.Model(&models.Tour{}).Where("name = ?", tour.Name).Count(&exists).Error; err != nil {
+		if err := database.DB.Model(&domain.Tour{}).Where("name = ?", tour.Name).Count(&exists).Error; err != nil {
 			return err
 		}
 
 		if exists > 0 {
-			if err := database.DB.Model(&models.Tour{}).
+			if err := database.DB.Model(&domain.Tour{}).
 				Where("name = ?", tour.Name).
 				Updates(map[string]interface{}{
 					"type":        tour.Type,

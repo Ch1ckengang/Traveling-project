@@ -1,8 +1,7 @@
-package controllers
+package tour
 
 import (
 	"net/http"
-	"travel-backend/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,11 +11,11 @@ import (
 
 // createTours - Tạo tour mẫu khi hệ thống chưa có dữ liệu tour
 func createTours() error {
-	return services.CreateToursIfEmpty()
+	return CreateToursIfEmpty()
 }
 
-func buildTourFilter(c *gin.Context, category string) services.TourFilter {
-	return services.TourFilter{
+func buildTourFilter(c *gin.Context, category string) TourFilter {
+	return TourFilter{
 		Category: category,
 		City:     c.DefaultQuery("city", c.Query("q")),
 		Duration: c.DefaultQuery("duration", "all"),
@@ -25,8 +24,8 @@ func buildTourFilter(c *gin.Context, category string) services.TourFilter {
 	}
 }
 
-// GetTours - Xử lý GET /api/tours
-func GetTours(c *gin.Context) {
+// GetToursHandler - Xử lý GET /api/tours
+func GetToursHandler(c *gin.Context) {
 	// Đảm bảo luôn có dữ liệu tour cơ bản cho chức năng đặt tour.
 	if err := createTours(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -39,7 +38,7 @@ func GetTours(c *gin.Context) {
 	filter := buildTourFilter(c, c.DefaultQuery("category", "all"))
 
 	// Gọi helper để lấy danh sách tour
-	tours, err := services.GetToursByFilter(filter)
+	tours, err := GetToursByFilter(filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -52,8 +51,8 @@ func GetTours(c *gin.Context) {
 	c.JSON(http.StatusOK, tours)
 }
 
-// GetDomesticTours - Xử lý GET /api/tours/domestic
-func GetDomesticTours(c *gin.Context) {
+// GetDomesticToursHandler - Xử lý GET /api/tours/domestic
+func GetDomesticToursHandler(c *gin.Context) {
 	if err := createTours(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -64,7 +63,7 @@ func GetDomesticTours(c *gin.Context) {
 
 	filter := buildTourFilter(c, "domestic")
 
-	tours, err := services.GetToursByFilter(filter)
+	tours, err := GetToursByFilter(filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -76,8 +75,8 @@ func GetDomesticTours(c *gin.Context) {
 	c.JSON(http.StatusOK, tours)
 }
 
-// GetInternationalTours - Xử lý GET /api/tours/international
-func GetInternationalTours(c *gin.Context) {
+// GetInternationalToursHandler - Xử lý GET /api/tours/international
+func GetInternationalToursHandler(c *gin.Context) {
 	if err := createTours(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -88,7 +87,7 @@ func GetInternationalTours(c *gin.Context) {
 
 	filter := buildTourFilter(c, "international")
 
-	tours, err := services.GetToursByFilter(filter)
+	tours, err := GetToursByFilter(filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,

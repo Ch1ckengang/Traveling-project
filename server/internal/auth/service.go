@@ -1,4 +1,4 @@
-package services
+package auth
 
 import (
 	"crypto/rand"
@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"travel-backend/models"
-	"travel-backend/repositories"
+	"travel-backend/domain"
+	"travel-backend/internal/shared"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -33,23 +33,27 @@ var (
 
 // Login - Xử lý logic đăng nhập
 // Business rule: email và password phải khớp với dữ liệu trong DB
-func Login(email, password string) (*models.User, error) {
+func Login(email, password string) (*domain.User, error) {
 	email = normalizeEmail(email)
 	if err := validateLoginInput(email, password); err != nil {
 		return nil, err
 	}
 
-	user, err := repositories.FindUserByEmail(email)
+	user, err := FindUserByEmail(email)
 	if err != nil {
 		// Không tiết lộ email có tồn tại hay không
-		if repositories.IsNotFoundError(err) {
-			return nil, ErrInvalidCredentials
+		if IsNotFoundError(err) {
+			return nil, shared.ErrInvalidCredentials
 		}
-		return nil, ErrLoginProcessFailed
+		return nil, shared.ErrLoginProcessFailed
 	}
 
 	if err := verifyPassword(user.Password, password); err != nil {
-		return nil, ErrInvalidCredentials
+		return nil, shared.ErrInvalidCredentials
+	}
+
+	if !user.IsEmailVerified {
+		return nil, shared.ErrEmailNotVerified
 	}
 
 	return user, nil
@@ -59,7 +63,7 @@ func Login(email, password string) (*models.User, error) {
 // Business rules:
 //  1. Email không được đã tồn tại trong hệ thống
 //  2. Nếu email chưa tồn tại → tạo user mới
-func Register(name, email, password string) (*models.User, error) {
+func Register(name, email, password string) (*domain.User, error) {
 	name = strings.TrimSpace(name)
 	email = normalizeEmail(email)
 	if err := validateRegisterInput(name, email, password); err != nil {
@@ -67,29 +71,34 @@ func Register(name, email, password string) (*models.User, error) {
 	}
 
 	// Rule 1: Kiểm tra email đã tồn tại chưa
-	_, err := repositories.FindUserByEmail(email)
+	_, err := FindUserByEmail(email)
 	if err == nil {
 		// err == nil nghĩa là tìm thấy user → email đã được đăng ký
-		return nil, ErrEmailAlreadyRegistered
+		return nil, shared.ErrEmailAlreadyRegistered
 	}
-	if !repositories.IsNotFoundError(err) {
-		return nil, ErrEmailCheckFailed
+	if !IsNotFoundError(err) {
+		return nil, shared.ErrEmailCheckFailed
 	}
 
 	hashedPassword, err := hashPassword(password)
 	if err != nil {
-		return nil, ErrPasswordHashFailed
+		return nil, shared.ErrPasswordHashFailed
 	}
 
 	// Email chưa tồn tại → tạo user mới
-	newUser := &models.User{
-		Name:     name,
-		Email:    email,
-		Password: hashedPassword,
+	newUser := &domain.User{
+		Name:            name,
+		Email:           email,
+		Password:        hashedPassword,
+		IsEmailVerified: false,
 	}
 
-	if err := repositories.CreateUser(newUser); err != nil {
-		return nil, ErrCreateAccountFailed
+	if err := CreateUser(newUser); err != nil {
+		return nil, shared.ErrCreateAccountFailed
+	}
+
+	if err := SendOTPForEmail(email); err != nil {
+		return nil, err
 	}
 
 	return newUser, nil
@@ -99,12 +108,19 @@ func Register(name, email, password string) (*models.User, error) {
 func SendOTPForEmail(email string) error {
 	email = normalizeEmail(email)
 	if _, err := mail.ParseAddress(email); err != nil {
-		return ErrInvalidOTPEmail
+		return shared.ErrInvalidOTPEmail
+	}
+
+	if _, err := FindUserByEmail(email); err != nil {
+		if IsNotFoundError(err) {
+			return shared.ErrOTPEmailNotRegistered
+		}
+		return shared.ErrEmailCheckFailed
 	}
 
 	code, err := generateOTPCode(6)
 	if err != nil {
-		return ErrOTPProcessFailed
+		return shared.ErrOTPProcessFailed
 	}
 
 	otpMu.Lock()
@@ -124,33 +140,49 @@ func VerifyOTPForEmail(email, code string) error {
 	code = strings.TrimSpace(code)
 
 	if _, err := mail.ParseAddress(email); err != nil {
-		return ErrInvalidOTPEmail
+		return shared.ErrInvalidOTPEmail
 	}
 
 	if len(code) != 6 {
-		return ErrInvalidOTPCode
+		return shared.ErrInvalidOTPCode
 	}
 
 	otpMu.Lock()
 	record, exists := otpStore[email]
 	if !exists {
 		otpMu.Unlock()
-		return ErrInvalidOTPCode
+		return shared.ErrInvalidOTPCode
 	}
 
 	if time.Now().After(record.ExpiresAt) {
 		delete(otpStore, email)
 		otpMu.Unlock()
-		return ErrInvalidOTPCode
+		return shared.ErrInvalidOTPCode
 	}
 
 	if record.Code != code {
 		otpMu.Unlock()
-		return ErrInvalidOTPCode
+		return shared.ErrInvalidOTPCode
 	}
 
 	delete(otpStore, email)
 	otpMu.Unlock()
+
+	user, err := FindUserByEmail(email)
+	if err != nil {
+		if IsNotFoundError(err) {
+			return shared.ErrOTPEmailNotRegistered
+		}
+		return shared.ErrEmailCheckFailed
+	}
+
+	if !user.IsEmailVerified {
+		user.IsEmailVerified = true
+		if err := SaveUser(user); err != nil {
+			return shared.ErrCreateAccountFailed
+		}
+	}
+
 	return nil
 }
 
@@ -158,14 +190,14 @@ func VerifyOTPForEmail(email, code string) error {
 func RequestPasswordReset(email string) error {
 	email = normalizeEmail(email)
 	if _, err := mail.ParseAddress(email); err != nil {
-		return ErrInvalidRegisterEmail
+		return shared.ErrInvalidRegisterEmail
 	}
 
-	if _, err := repositories.FindUserByEmail(email); err != nil {
-		if repositories.IsNotFoundError(err) {
+	if _, err := FindUserByEmail(email); err != nil {
+		if IsNotFoundError(err) {
 			return nil
 		}
-		return ErrEmailCheckFailed
+		return shared.ErrEmailCheckFailed
 	}
 
 	log.Printf("[RESET] Reset requested for email=%s (dev mode)", email)
@@ -177,16 +209,16 @@ func RequestPasswordReset(email string) error {
 //  1. User phải tồn tại
 //  2. Nếu đổi email → email mới không được trùng với user khác
 //  3. Chỉ cập nhật các trường được gửi lên (không bỏ trống)
-func UpdateUser(userID string, req models.UpdateUserRequest) (*models.User, error) {
+func UpdateUser(userID string, req domain.UpdateUserRequest) (*domain.User, error) {
 	// Rule 1: Tìm user hiện tại
-	user, err := repositories.FindUserByID(userID)
+	user, err := FindUserByID(userID)
 	if err != nil {
 		return nil, errors.New("Không tìm thấy người dùng")
 	}
 
 	// Rule 2: Nếu muốn đổi email → kiểm tra không được trùng với user khác
 	if req.Email != "" && req.Email != user.Email {
-		if repositories.EmailExistsForOtherUser(req.Email, userID) {
+		if EmailExistsForOtherUser(req.Email, userID) {
 			return nil, errors.New("Email đã được sử dụng bởi tài khoản khác")
 		}
 		user.Email = req.Email
@@ -205,7 +237,7 @@ func UpdateUser(userID string, req models.UpdateUserRequest) (*models.User, erro
 	}
 
 	// Lưu thay đổi qua repository
-	if err := repositories.SaveUser(user); err != nil {
+	if err := SaveUser(user); err != nil {
 		return nil, errors.New("Không thể cập nhật thông tin")
 	}
 
@@ -230,22 +262,26 @@ func normalizeEmail(email string) string {
 
 func validateLoginInput(email, password string) error {
 	if email == "" || strings.TrimSpace(password) == "" {
-		return ErrInvalidAuthPayload
+		return shared.ErrInvalidAuthPayload
 	}
 	return nil
 }
 
 func validateRegisterInput(name, email, password string) error {
 	if name == "" {
-		return ErrInvalidName
+		return shared.ErrInvalidName
 	}
 
 	if _, err := mail.ParseAddress(email); err != nil {
-		return ErrInvalidRegisterEmail
+		return shared.ErrInvalidRegisterEmail
+	}
+
+	if !strings.HasSuffix(email, "@gmail.com") {
+		return shared.ErrRegisterEmailMustGmail
 	}
 
 	if len(password) < 8 {
-		return ErrWeakPassword
+		return shared.ErrWeakPassword
 	}
 
 	return nil
