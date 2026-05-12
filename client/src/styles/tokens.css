@@ -1,0 +1,59 @@
+:root {
+  --bg-dark: #eef2ec;
+  --surface-dark: #f9fbf8;
+  --surface-elevated: #ffffff;
+  --text-main: #223126;
+  --text-muted: #5f7062;
+  --line-color: #cfdbd0;
+  --accent-color: #315f45;
+  --border-color: #cfdbd0;
+  --primary-color: #315f45;
+  --bg-layer-top: radial-gradient(1200px 620px at 84% -8%, rgba(174, 205, 181, 0.38), transparent 62%);
+  --bg-layer-left: radial-gradient(900px 520px at -14% 2%, rgba(209, 226, 215, 0.72), transparent 58%);
+  --bg-grid: linear-gradient(120deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 40%);
+  --header-bg: rgba(249, 251, 248, 0.84);
+  --header-shadow: 0 14px 34px rgba(52, 76, 58, 0.1);
+  --input-bg: #f3f7f2;
+  --input-focus-bg: #ffffff;
+  --control-hover-bg: rgba(63, 108, 76, 0.1);
+}
+
+:root[data-theme='light'] {
+  --bg-dark: #eef2ec;
+  --surface-dark: #f9fbf8;
+  --surface-elevated: #ffffff;
+  --text-main: #223126;
+  --text-muted: #5f7062;
+  --line-color: #cfdbd0;
+  --accent-color: #315f45;
+  --border-color: #cfdbd0;
+  --primary-color: #315f45;
+  --bg-layer-top: radial-gradient(1200px 620px at 84% -8%, rgba(174, 205, 181, 0.38), transparent 62%);
+  --bg-layer-left: radial-gradient(900px 520px at -14% 2%, rgba(209, 226, 215, 0.72), transparent 58%);
+  --bg-grid: linear-gradient(120deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 40%);
+  --header-bg: rgba(249, 251, 248, 0.84);
+  --header-shadow: 0 14px 34px rgba(52, 76, 58, 0.1);
+  --input-bg: #f3f7f2;
+  --input-focus-bg: #ffffff;
+  --control-hover-bg: rgba(63, 108, 76, 0.1);
+}
+
+:root[data-theme='dark'] {
+  --bg-dark: #111a15;
+  --surface-dark: #18231d;
+  --surface-elevated: #1f2d25;
+  --text-main: #e9f1eb;
+  --text-muted: #a9b7ac;
+  --line-color: #395042;
+  --accent-color: #8ec79c;
+  --border-color: #395042;
+  --primary-color: #8ec79c;
+  --bg-layer-top: radial-gradient(1200px 620px at 84% -8%, rgba(84, 116, 93, 0.28), transparent 58%);
+  --bg-layer-left: radial-gradient(900px 520px at -14% 2%, rgba(58, 87, 69, 0.44), transparent 54%);
+  --bg-grid: linear-gradient(120deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 46%);
+  --header-bg: rgba(24, 35, 29, 0.82);
+  --header-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  --input-bg: #1a2820;
+  --input-focus-bg: #223228;
+  --control-hover-bg: rgba(142, 199, 156, 0.14);
+}

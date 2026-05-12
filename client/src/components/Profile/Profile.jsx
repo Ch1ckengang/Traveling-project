@@ -3,9 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import axios from 'axios';
+import { changePassword as apiChangePassword } from '../../services/authService';
 import '../../styles/Profile.css';
 
+
 const API_BASE_URL = 'http://localhost:8080/v1/api';
+
+const extractUserFromAuthResponse = (payload) => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  // Current backend contract: { success, data: { user } }
+  if (payload.data && typeof payload.data === 'object' && payload.data.user) {
+    return payload.data.user;
+  }
+
+  // Backward compatibility for legacy responses: { success, user }
+  if (payload.user) {
+    return payload.user;
+  }
+
+  return null;
+};
 
 const formatCurrency = (amount) => {
   if (!Number.isFinite(amount)) {
@@ -25,10 +45,13 @@ const formatDateTime = (dateTime) => {
     return 'Chưa có dữ liệu';
   }
 
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(date);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
 /**
@@ -41,7 +64,7 @@ const formatDateTime = (dateTime) => {
  * - Validation form đầy đủ
  */
 const Profile = () => {
-  const { user, login } = useAuth();
+  const { user, tokens, login, requestWithAuth, fetchUser, updateUser } = useAuth();
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -51,19 +74,31 @@ const Profile = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
+    avatar_url: '',
+  });
+  const [originalData, setOriginalData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    avatar_url: '',
+  });
+
+  // State đổi mật khẩu riêng biệt
+  const [pwData, setPwData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
-  const [originalData, setOriginalData] = useState({
-    name: '',
-    email: ''
-  });
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
   
   const [isEditing, setIsEditing] = useState(false); // Trạng thái chế độ xem/chỉnh sửa
   const [error, setError] = useState(''); // Thông báo lỗi
   const [success, setSuccess] = useState(''); // Thông báo thành công
   const [loading, setLoading] = useState(false); // Trạng thái đang xử lý
+
 
   const [bookings, setBookings] = useState([]);
   const [bookingLoading, setBookingLoading] = useState(false);
@@ -84,18 +119,31 @@ const Profile = () => {
     const nextData = {
       name: user.name || '',
       email: user.email || '',
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
+      phone: user.phone || '',
+      avatar_url: user.avatar_url || '',
     };
 
     setFormData(nextData);
-    setOriginalData({
-      name: nextData.name,
-      email: nextData.email
-    });
+    setOriginalData(nextData);
     setIsEditing(false);
-  }, [user, navigate]);
+
+    // Fetch mới từ server để đảm bảo data mới nhất
+    if (fetchUser) {
+      fetchUser().then(freshUser => {
+        if (freshUser) {
+          const fresh = {
+            name: freshUser.name || '',
+            email: freshUser.email || '',
+            phone: freshUser.phone || '',
+            avatar_url: freshUser.avatar_url || '',
+          };
+          setFormData(fresh);
+          setOriginalData(fresh);
+        }
+      }).catch(() => {});
+    }
+  }, [user?.id, navigate]);
+
 
   useEffect(() => {
     if (activeSection !== 'bookings' || !user?.id) {
@@ -108,7 +156,14 @@ const Profile = () => {
       setBookingSuccess('');
 
       try {
-        const response = await axios.get(`${API_BASE_URL}/users/${user.id}/bookings`);
+        const response = await requestWithAuth((accessToken) => axios.get(
+          `${API_BASE_URL}/users/${user.id}/bookings`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        ));
         setBookings(response.data?.bookings || []);
       } catch (err) {
         setBookingError(err.response?.data?.message || 'Không thể tải danh sách tour đã đặt.');
@@ -153,7 +208,15 @@ const Profile = () => {
     setCancelingBookingId(booking.id);
 
     try {
-      const response = await axios.put(`${API_BASE_URL}/users/${user.id}/bookings/${booking.id}/cancel`);
+      const response = await requestWithAuth((accessToken) => axios.put(
+        `${API_BASE_URL}/users/${user.id}/bookings/${booking.id}/cancel`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      ));
       if (response.data?.success) {
         setBookingSuccess(response.data?.message || 'Hủy tour thành công.');
         setBookingReloadToken((prev) => prev + 1);
@@ -168,11 +231,8 @@ const Profile = () => {
   /**
    * handleSubmit - Xử lý khi user submit form cập nhật thông tin
    * Luồng:
-   * 1. Validate form (tên, email không rỗng, password match, length)
-   * 2. Gửi PUT request đến /api/users/:id
-   * 3. Backend kiểm tra email trùng lặp
-   * 4. Nếu success -> cập nhật context & localStorage, hiển thị thông báo
-   * 5. Nếu lỗi -> hiển thị thông báo lỗi (đặc biệt: email trùng)
+   * 1. Validate form (tên, email không rỗng)
+   * 2. Gửi PUT cập nhật profile
    */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -186,6 +246,8 @@ const Profile = () => {
 
     const cleanedName = formData.name.trim();
     const cleanedEmail = formData.email.trim();
+    const cleanedPhone = formData.phone.trim();
+    const cleanedAvatarURL = formData.avatar_url.trim();
 
     // VALIDATION
     if (cleanedName === '') {
@@ -198,76 +260,64 @@ const Profile = () => {
       return;
     }
 
-    const hasProfileChange = cleanedName !== originalData.name || cleanedEmail !== originalData.email;
-    const hasPasswordChange = formData.newPassword.trim() !== '';
-
-    if (!hasProfileChange && !hasPasswordChange) {
+    const hasProfileChange =
+      cleanedName !== originalData.name ||
+      cleanedEmail !== originalData.email ||
+      cleanedPhone !== originalData.phone ||
+      cleanedAvatarURL !== originalData.avatar_url;
+    if (!hasProfileChange) {
       setError('Bạn chưa thay đổi thông tin nào để lưu.');
       return;
-    }
-
-    // Nếu muốn đổi mật khẩu, validate mật khẩu mới
-    if (formData.newPassword) {
-      if (formData.newPassword.length < 6) {
-        setError('Mật khẩu mới phải có ít nhất 6 ký tự');
-        return;
-      }
-      
-      if (formData.newPassword !== formData.confirmPassword) {
-        setError('Mật khẩu xác nhận không khớp');
-        return;
-      }
     }
 
     setLoading(true);
 
     try {
-      // Chuẩn bị data để gửi
       const updateData = {
         name: cleanedName,
         email: cleanedEmail,
+        phone: cleanedPhone,
+        avatar_url: cleanedAvatarURL
       };
 
-      // Thêm password nếu user muốn đổi
-      if (formData.newPassword) {
-        updateData.password = formData.newPassword;
-      }
-
-      // GỬI REQUEST ĐẾN BACKEND
-      const response = await axios.put(
+      const response = await requestWithAuth((accessToken) => axios.put(
         `http://localhost:8080/v1/api/users/${user.id}`,
-        updateData
-      );
+        updateData,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      ));
 
       if (response.data.success) {
-        // Cập nhật context với thông tin mới (tự động update header)
-        login(response.data.user);
+        const updatedUser = extractUserFromAuthResponse(response.data);
+        if (!updatedUser) {
+          setError('Không thể đọc thông tin đã cập nhật từ phản hồi máy chủ.');
+          return;
+        }
 
-        const updatedName = response.data.user?.name || cleanedName;
-        const updatedEmail = response.data.user?.email || cleanedEmail;
+        login(updatedUser, tokens);
+        if (updateUser) updateUser(updatedUser);
+
+        const updatedName = updatedUser?.name || cleanedName;
+        const updatedEmail = updatedUser?.email || cleanedEmail;
+        const updatedPhone = updatedUser?.phone || cleanedPhone;
+        const updatedAvatarURL = updatedUser?.avatar_url || cleanedAvatarURL;
 
         setOriginalData({
           name: updatedName,
-          email: updatedEmail
+          email: updatedEmail,
+          phone: updatedPhone,
+          avatar_url: updatedAvatarURL
         });
-        
         setSuccess('Cập nhật thông tin thành công!');
-        setIsEditing(false); // Chuyển về chế độ xem
-        
-        // Reset password fields
+        setIsEditing(false);
         setFormData({
-          ...formData,
           name: updatedName,
           email: updatedEmail,
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
+          phone: updatedPhone,
+          avatar_url: updatedAvatarURL
         });
       }
     } catch (err) {
-      // XỬ LÝ LỖI
       if (err.response?.status === 409) {
-        // Status 409 = Conflict -> Email đã tồn tại
         setError('Email đã được sử dụng bởi tài khoản khác');
       } else {
         setError(err.response?.data?.message || 'Cập nhật thất bại. Vui lòng thử lại.');
@@ -277,22 +327,54 @@ const Profile = () => {
     }
   };
 
+  // handleChangePassword - Đổi mật khẩu qua endpoint mới
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess('');
+
+    if (!pwData.currentPassword) {
+      setPwError('Vui lòng nhập mật khẩu hiện tại');
+      return;
+    }
+    if (pwData.newPassword.length < 8) {
+      setPwError('Mật khẩu mới phải có ít nhất 8 ký tự');
+      return;
+    }
+    if (pwData.newPassword !== pwData.confirmPassword) {
+      setPwError('Mật khẩu xác nhận không khớp');
+      return;
+    }
+
+    setPwLoading(true);
+    try {
+      await apiChangePassword(pwData.currentPassword, pwData.newPassword);
+      setPwSuccess('Đổi mật khẩu thành công!');
+      setPwData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      setPwError(err.response?.data?.message || 'Đổi mật khẩu thất bại. Kiểm tra lại mật khẩu hiện tại.');
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
   /**
    * handleCancel - Xử lý khi user hủy chỉnh sửa
+
    * Reset form về giá trị ban đầu và chuyển về chế độ xem
    */
   const handleCancel = () => {
     setFormData({
       name: originalData.name,
       email: originalData.email,
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
+      phone: originalData.phone,
+      avatar_url: originalData.avatar_url,
     });
     setIsEditing(false);
     setError('');
     setSuccess('');
   };
+
 
   if (!user) {
     return null;
@@ -352,7 +434,11 @@ const Profile = () => {
         <aside className="profile-sidebar">
           <div className="profile-header">
             <div className="profile-avatar-large">
-              {user.name?.charAt(0).toUpperCase()}
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt={user.name || 'Avatar'} />
+              ) : (
+                user.name?.charAt(0).toUpperCase()
+              )}
             </div>
             <h2>{user.name}</h2>
             <p className="profile-email">{user.email}</p>
@@ -442,35 +528,34 @@ const Profile = () => {
                       required
                     />
                   </div>
+
+                  <div className="form-group">
+                    <label>Số điện thoại</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      placeholder="Nhập số điện thoại"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Avatar URL</label>
+                    <input
+                      type="url"
+                      name="avatar_url"
+                      value={formData.avatar_url}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      placeholder="https://..."
+                    />
+                  </div>
                 </div>
 
-                {isEditing && (
-                  <div className="form-section">
-                    <h3>Đổi mật khẩu (tùy chọn)</h3>
 
-                    <div className="form-group">
-                      <label>Mật khẩu mới</label>
-                      <input
-                        type="password"
-                        name="newPassword"
-                        value={formData.newPassword}
-                        onChange={handleChange}
-                        placeholder="Nhập mật khẩu mới (nếu muốn đổi)"
-                      />
-                    </div>
 
-                    <div className="form-group">
-                      <label>Xác nhận mật khẩu mới</label>
-                      <input
-                        type="password"
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        placeholder="Nhập lại mật khẩu mới"
-                      />
-                    </div>
-                  </div>
-                )}
 
                 <div className="profile-actions">
                   {!isEditing ? (
@@ -502,8 +587,62 @@ const Profile = () => {
                   )}
                 </div>
               </form>
+
+              {/* Form đổi mật khẩu riêng biệt */}
+              <form onSubmit={handleChangePassword} className="profile-form" style={{ marginTop: '1.5rem' }}>
+                <div className="form-section">
+                  <h3>Đổi mật khẩu</h3>
+                  {pwError && <div className="error-message">{pwError}</div>}
+                  {pwSuccess && <div className="success-message">{pwSuccess}</div>}
+
+                  <div className="form-group">
+                    <label>Mật khẩu hiện tại</label>
+                    <input
+                      type="password"
+                      value={pwData.currentPassword}
+                      onChange={(e) => setPwData({ ...pwData, currentPassword: e.target.value })}
+                      placeholder="Nhập mật khẩu hiện tại"
+                      autoComplete="current-password"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Mật khẩu mới</label>
+                    <input
+                      type="password"
+                      value={pwData.newPassword}
+                      onChange={(e) => setPwData({ ...pwData, newPassword: e.target.value })}
+                      placeholder="Tối thiểu 8 ký tự"
+                      autoComplete="new-password"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Xác nhận mật khẩu mới</label>
+                    <input
+                      type="password"
+                      value={pwData.confirmPassword}
+                      onChange={(e) => setPwData({ ...pwData, confirmPassword: e.target.value })}
+                      placeholder="Nhập lại mật khẩu mới"
+                      autoComplete="new-password"
+                    />
+                  </div>
+
+                  <div className="profile-actions">
+                    <button
+                      type="submit"
+                      className="btn-save"
+                      disabled={pwLoading}
+                    >
+                      {pwLoading ? 'Đang đổi...' : 'Đổi mật khẩu'}
+                    </button>
+                  </div>
+                </div>
+              </form>
             </>
           )}
+
+
 
           {activeSection === 'bookings' && (
             <div className="bookings-section">

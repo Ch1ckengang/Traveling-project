@@ -65,11 +65,6 @@ const Register = () => {
       return;
     }
 
-    if (!normalizedEmail.endsWith('@gmail.com')) {
-      setError('Email đăng ký phải có đuôi @gmail.com.');
-      return;
-    }
-
     // Kiểm tra mật khẩu khớp
     if (normalizedPassword !== formData.confirmPassword) {
       setError('Mật khẩu xác nhận không khớp');
@@ -97,6 +92,7 @@ const Register = () => {
       });
 
       if (response.data.success) {
+        sessionStorage.setItem('pending_verification_email', normalizedEmail);
         navigate('/otp-verification', {
           state: {
             email: normalizedEmail,
@@ -137,7 +133,7 @@ const Register = () => {
             name="email"
             value={formData.email}
             onChange={handleChange}
-            placeholder="name@gmail.com"
+            placeholder="name@example.com"
             required
           />
         </div>

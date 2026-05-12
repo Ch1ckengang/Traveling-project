@@ -17,6 +17,7 @@ type Tour struct {
 	RemainingSlots int       `json:"remaining_slots" gorm:"not null;default:30"`
 	Itinerary      string    `json:"itinerary"`
 	Services       string    `json:"services"`
+	ImageURL       string    `json:"image_url" gorm:"default:''"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }

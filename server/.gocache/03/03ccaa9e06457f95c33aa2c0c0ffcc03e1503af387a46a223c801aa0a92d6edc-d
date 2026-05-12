@@ -1,0 +1,13 @@
+./auth_dto.go
+./booking.go
+./booking_dto.go
+./otp.go
+./payment.go
+./payment_audit.go
+./payment_dto.go
+./tour.go
+./user.go
+./booking_dto_test.go
+./payment_audit_test.go
+./payment_dto_test.go
+./payment_test.go

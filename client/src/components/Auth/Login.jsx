@@ -7,6 +7,40 @@ import '../../styles/Auth.css';
 
 const API_BASE_URL = 'http://localhost:8080/v1/api';
 
+const extractUserFromAuthResponse = (payload) => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  // Current backend contract: { success, data: { user } }
+  if (payload.data && typeof payload.data === 'object' && payload.data.user) {
+    return payload.data.user;
+  }
+
+  // Backward compatibility for legacy responses: { success, user }
+  if (payload.user) {
+    return payload.user;
+  }
+
+  return null;
+};
+
+const extractTokensFromAuthResponse = (payload) => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  if (payload.data && typeof payload.data === 'object' && payload.data.tokens) {
+    return payload.data.tokens;
+  }
+
+  if (payload.tokens) {
+    return payload.tokens;
+  }
+
+  return null;
+};
+
 const Login = () => {
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -17,6 +51,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   const successMessage = location.state?.message || '';
+  const redirectPath = typeof location.state?.from === 'string' ? location.state.from : '/';
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -41,11 +76,24 @@ const Login = () => {
       });
 
       if (response.data.success) {
-        login(response.data.user);
+        const userPayload = extractUserFromAuthResponse(response.data);
+        const tokenPayload = extractTokensFromAuthResponse(response.data);
+        if (!userPayload) {
+          setError('Không thể đọc thông tin người dùng từ phản hồi máy chủ.');
+          return;
+        }
+
+        if (!tokenPayload?.access_token || !tokenPayload?.refresh_token) {
+          setError('Không thể đọc token đăng nhập từ phản hồi máy chủ.');
+          return;
+        }
+
+        login(userPayload, tokenPayload);
         if (!rememberMe) {
           localStorage.removeItem('user');
+          localStorage.removeItem('auth_tokens');
         }
-        navigate('/');
+        navigate(redirectPath, { replace: true });
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.');

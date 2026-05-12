@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Token</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .section {
+            background: #252526;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 3px solid #007acc;
+        }
+        .key {
+            color: #9cdcfe;
+            font-weight: bold;
+        }
+        .value {
+            color: #ce9178;
+            word-break: break-all;
+        }
+        .missing {
+            color: #f48771;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Token Debug Tool</h1>
+    
+    <div class="section">
+        <h2>LocalStorage Tokens</h2>
+        <div id="tokens"></div>
+    </div>
+
+    <div class="section">
+        <h2>Actions</h2>
+        <button onclick="refreshDisplay()">🔄 Refresh</button>
+        <button onclick="clearTokens()">🗑️ Clear All Tokens</button>
+        <button onclick="testBookingAPI()">🧪 Test Booking API</button>
+    </div>
+
+    <div class="section">
+        <h2>API Test Result</h2>
+        <pre id="apiResult">Click "Test Booking API" to test...</pre>
+    </div>
+
+    <script>
+        function displayTokens() {
+            const keys = ['accessToken', 'refreshToken', 'auth_tokens', 'user'];
+            const container = document.getElementById('tokens');
+            container.innerHTML = '';
+
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                const div = document.createElement('div');
+                div.style.marginBottom = '10px';
+                
+                if (value) {
+                    div.innerHTML = `
+                        <span class="key">${key}:</span> 
+                        <span class="value">${value.substring(0, 100)}${value.length > 100 ? '...' : ''}</span>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <span class="key">${key}:</span> 
+                        <span class="missing">MISSING</span>
+                    `;
+                }
+                
+                container.appendChild(div);
+            });
+        }
+
+        function refreshDisplay() {
+            displayTokens();
+        }
+
+        function clearTokens() {
+            if (confirm('Clear all tokens?')) {
+                localStorage.clear();
+                displayTokens();
+                alert('All tokens cleared!');
+            }
+        }
+
+        async function testBookingAPI() {
+            const resultEl = document.getElementById('apiResult');
+            resultEl.textContent = 'Testing...';
+
+            const accessToken = localStorage.getItem('accessToken');
+            
+            if (!accessToken) {
+                resultEl.textContent = '❌ ERROR: No accessToken found in localStorage';
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:8080/v1/api/bookings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        tour_id: 1,
+                        full_name: "Test User",
+                        phone: "0123456789",
+                        email: "test@example.com",
+                        adult_count: 1,
+                        child_count: 0,
+                        infant_count: 0,
+                        travel_date: "2026-05-15",
+                        note: "Test booking"
+                    })
+                });
+
+                const data = await response.json();
+                
+                resultEl.textContent = `
+Status: ${response.status} ${response.statusText}
+
+Response:
+${JSON.stringify(data, null, 2)}
+
+Token used:
+${accessToken.substring(0, 50)}...
+                `;
+            } catch (error) {
+                resultEl.textContent = `❌ ERROR: ${error.message}`;
+            }
+        }
+
+        // Initial display
+        displayTokens();
+    </script>
+</body>
+</html>

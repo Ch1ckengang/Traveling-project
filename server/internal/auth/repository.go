@@ -28,7 +28,7 @@ func IsNotFoundError(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
-// FindUserByID - Tìm user theo ID
+// FindUserByID - Tìm user theo ID (string, dùng cho UpdateUser)
 // Dùng để lấy thông tin user trước khi cập nhật
 func FindUserByID(id string) (*domain.User, error) {
 	var user domain.User
@@ -38,6 +38,17 @@ func FindUserByID(id string) (*domain.User, error) {
 	}
 	return &user, nil
 }
+
+// FindUserByIDUint - Tìm user theo ID (uint, dùng cho middleware/JWT claims)
+func FindUserByIDUint(id uint) (*domain.User, error) {
+	var user domain.User
+	result := database.DB.First(&user, id)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &user, nil
+}
+
 
 // EmailExistsForOtherUser - Kiểm tra email đã được dùng bởi user khác chưa
 // Dùng khi cập nhật email: không được trùng với user khác (trừ chính mình)

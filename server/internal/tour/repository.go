@@ -69,7 +69,7 @@ func FindToursByCategory(category string) ([]domain.Tour, error) {
 	return tours, nil
 }
 
-// FindTourByID - Tìm tour theo id
+// FindTourByID - Tìm tour theo id (uint)
 func FindTourByID(id uint) (*domain.Tour, error) {
 	var tour domain.Tour
 	if err := database.DB.First(&tour, id).Error; err != nil {
@@ -81,6 +81,56 @@ func FindTourByID(id uint) (*domain.Tour, error) {
 	}
 
 	return &tour, nil
+}
+
+// FindTourByIDString - Tìm tour theo id (string từ URL param)
+func FindTourByIDString(id string) (*domain.Tour, error) {
+	var tour domain.Tour
+	if err := database.DB.First(&tour, id).Error; err != nil {
+		return nil, err
+	}
+
+	if tour.RemainingSlots <= 0 {
+		tour.RemainingSlots = 30
+	}
+
+	return &tour, nil
+}
+
+// SearchTours - Tìm kiếm tour theo keyword (name, location, description)
+func SearchTours(keyword string) ([]domain.Tour, error) {
+	var tours []domain.Tour
+	like := "%" + strings.ToLower(keyword) + "%"
+	err := database.DB.
+		Where("LOWER(name) LIKE ? OR LOWER(location) LIKE ? OR LOWER(description) LIKE ? OR LOWER(country) LIKE ?",
+			like, like, like, like).
+		Find(&tours).Error
+	if err != nil {
+		return nil, err
+	}
+	normalizeTourSlots(tours)
+	return tours, nil
+}
+
+// CountTours - Đếm tổng số tour, optional filter theo category.
+func CountTours(category string) (int64, error) {
+	var count int64
+	query := database.DB.Model(&domain.Tour{})
+
+	switch strings.ToLower(strings.TrimSpace(category)) {
+	case "domestic":
+		query = query.Where("type = ?", "domestic")
+	case "international":
+		query = query.Where("type = ?", "international")
+	case "service":
+		query = query.Where("type = ?", "service")
+	}
+
+	if err := query.Count(&count).Error; err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 func normalizeTourSlots(tours []domain.Tour) {

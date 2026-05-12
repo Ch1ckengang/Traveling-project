@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"net/mail"
 	"strings"
-	"sync"
 	"time"
 	"travel-backend/domain"
 	"travel-backend/internal/shared"
@@ -16,15 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type otpRecord struct {
-	Code      string
-	ExpiresAt time.Time
-}
-
-var (
-	otpStore = map[string]otpRecord{}
-	otpMu    sync.Mutex
-)
+// Removed in-memory OTP storage - now using database
 
 // UserService - Tầng chứa business logic cho User
 // Giống như "đầu bếp" — biết phải làm gì với nguyên liệu
@@ -63,9 +54,10 @@ func Login(email, password string) (*domain.User, error) {
 // Business rules:
 //  1. Email không được đã tồn tại trong hệ thống
 //  2. Nếu email chưa tồn tại → tạo user mới
-func Register(name, email, password string) (*domain.User, error) {
+func Register(name, email, phone, password string) (*domain.User, error) {
 	name = strings.TrimSpace(name)
 	email = normalizeEmail(email)
+	phone = strings.TrimSpace(phone)
 	if err := validateRegisterInput(name, email, password); err != nil {
 		return nil, err
 	}
@@ -89,6 +81,7 @@ func Register(name, email, password string) (*domain.User, error) {
 	newUser := &domain.User{
 		Name:            name,
 		Email:           email,
+		Phone:           phone,
 		Password:        hashedPassword,
 		IsEmailVerified: false,
 	}
@@ -104,7 +97,7 @@ func Register(name, email, password string) (*domain.User, error) {
 	return newUser, nil
 }
 
-// SendOTPForEmail - Tạo mã OTP 6 chữ số cho email hợp lệ
+// SendOTPForEmail - Tạo mã OTP 6 chữ số cho email hợp lệ và lưu vào database
 func SendOTPForEmail(email string) error {
 	email = normalizeEmail(email)
 	if _, err := mail.ParseAddress(email); err != nil {
@@ -123,18 +116,31 @@ func SendOTPForEmail(email string) error {
 		return shared.ErrOTPProcessFailed
 	}
 
-	otpMu.Lock()
-	otpStore[email] = otpRecord{
+	// Xóa các OTP cũ của email này trước khi tạo mới
+	_ = DeleteOTPByEmail(email)
+
+	// Lưu OTP vào database
+	otp := &domain.OTP{
+		Email:     email,
 		Code:      code,
 		ExpiresAt: time.Now().Add(3 * time.Minute),
 	}
-	otpMu.Unlock()
 
-	log.Printf("[OTP] Email=%s Code=%s (dev mode)", email, code)
+	if err := SaveOTP(otp); err != nil {
+		return shared.ErrOTPProcessFailed
+	}
+
+	// Gửi email chứa OTP
+	if err := shared.SendOTPEmail(email, code); err != nil {
+		log.Printf("⚠️ Failed to send OTP email to %s: %v", email, err)
+		// Không return error vì OTP đã lưu thành công
+		// User vẫn có thể thấy OTP trong log (dev mode)
+	}
+
 	return nil
 }
 
-// VerifyOTPForEmail - Kiểm tra mã OTP còn hạn và khớp với email
+// VerifyOTPForEmail - Kiểm tra mã OTP còn hạn và khớp với email từ database
 func VerifyOTPForEmail(email, code string) error {
 	email = normalizeEmail(email)
 	code = strings.TrimSpace(code)
@@ -147,27 +153,27 @@ func VerifyOTPForEmail(email, code string) error {
 		return shared.ErrInvalidOTPCode
 	}
 
-	otpMu.Lock()
-	record, exists := otpStore[email]
-	if !exists {
-		otpMu.Unlock()
+	// Tìm OTP từ database
+	otp, err := FindOTPByEmail(email)
+	if err != nil {
 		return shared.ErrInvalidOTPCode
 	}
 
-	if time.Now().After(record.ExpiresAt) {
-		delete(otpStore, email)
-		otpMu.Unlock()
+	// Kiểm tra OTP đã hết hạn chưa
+	if otp.IsExpired() {
+		_ = DeleteOTPByEmail(email)
 		return shared.ErrInvalidOTPCode
 	}
 
-	if record.Code != code {
-		otpMu.Unlock()
+	// Kiểm tra code có khớp không
+	if otp.Code != code {
 		return shared.ErrInvalidOTPCode
 	}
 
-	delete(otpStore, email)
-	otpMu.Unlock()
+	// Xóa OTP sau khi verify thành công
+	_ = DeleteOTPByEmail(email)
 
+	// Cập nhật user là đã verify email
 	user, err := FindUserByEmail(email)
 	if err != nil {
 		if IsNotFoundError(err) {
@@ -186,21 +192,98 @@ func VerifyOTPForEmail(email, code string) error {
 	return nil
 }
 
-// RequestPasswordReset - Không tiết lộ email có tồn tại hay không
+// RequestPasswordReset - Gửi email reset password dùng OTP system
 func RequestPasswordReset(email string) error {
 	email = normalizeEmail(email)
 	if _, err := mail.ParseAddress(email); err != nil {
 		return shared.ErrInvalidRegisterEmail
 	}
 
-	if _, err := FindUserByEmail(email); err != nil {
+	_, err := FindUserByEmail(email)
+	if err != nil {
 		if IsNotFoundError(err) {
+			// Không tiết lộ email có tồn tại hay không
 			return nil
 		}
 		return shared.ErrEmailCheckFailed
 	}
 
-	log.Printf("[RESET] Reset requested for email=%s (dev mode)", email)
+	// Tái sử dụng OTP system để gửi reset code
+	if err := SendOTPForEmail(email); err != nil {
+		log.Printf("⚠️ Failed to send password reset OTP to %s: %v", email, err)
+	}
+
+	return nil
+}
+
+// GetUserByID - Lấy thông tin user theo uint ID (dùng cho GET /users/me)
+func GetUserByID(userID uint) (*domain.User, error) {
+	user, err := FindUserByIDUint(userID)
+	if err != nil {
+		if IsNotFoundError(err) {
+			return nil, errors.New("Không tìm thấy người dùng")
+		}
+		return nil, errors.New("Không thể lấy thông tin người dùng")
+	}
+	return user, nil
+}
+
+// ChangePassword - Đổi mật khẩu (yêu cầu mật khẩu hiện tại)
+func ChangePassword(userID uint, currentPassword, newPassword string) error {
+	user, err := FindUserByIDUint(userID)
+	if err != nil {
+		return errors.New("Không tìm thấy người dùng")
+	}
+
+	if err := verifyPassword(user.Password, currentPassword); err != nil {
+		return shared.ErrInvalidCredentials
+	}
+
+	if len(newPassword) < 8 {
+		return shared.ErrWeakPassword
+	}
+
+	hashedPassword, err := hashPassword(newPassword)
+	if err != nil {
+		return shared.ErrPasswordHashFailed
+	}
+
+	user.Password = hashedPassword
+	if err := SaveUser(user); err != nil {
+		return errors.New("Không thể cập nhật mật khẩu")
+	}
+
+	return nil
+}
+
+// ResetPassword - Đặt lại mật khẩu bằng OTP token
+func ResetPassword(email, otpCode, newPassword string) error {
+	email = normalizeEmail(email)
+
+	// Verify OTP trước
+	if err := VerifyOTPForEmail(email, otpCode); err != nil {
+		return err
+	}
+
+	if len(newPassword) < 8 {
+		return shared.ErrWeakPassword
+	}
+
+	user, err := FindUserByEmail(email)
+	if err != nil {
+		return errors.New("Không tìm thấy người dùng")
+	}
+
+	hashedPassword, err := hashPassword(newPassword)
+	if err != nil {
+		return shared.ErrPasswordHashFailed
+	}
+
+	user.Password = hashedPassword
+	if err := SaveUser(user); err != nil {
+		return errors.New("Không thể cập nhật mật khẩu")
+	}
+
 	return nil
 }
 
@@ -227,6 +310,12 @@ func UpdateUser(userID string, req domain.UpdateUserRequest) (*domain.User, erro
 	// Rule 3: Chỉ cập nhật các trường được gửi
 	if req.Name != "" {
 		user.Name = req.Name
+	}
+	if req.Phone != "" {
+		user.Phone = strings.TrimSpace(req.Phone)
+	}
+	if req.AvatarURL != "" {
+		user.AvatarURL = strings.TrimSpace(req.AvatarURL)
 	}
 	if req.Password != "" {
 		hashedPassword, err := hashPassword(req.Password)
@@ -276,9 +365,7 @@ func validateRegisterInput(name, email, password string) error {
 		return shared.ErrInvalidRegisterEmail
 	}
 
-	if !strings.HasSuffix(email, "@gmail.com") {
-		return shared.ErrRegisterEmailMustGmail
-	}
+	// Removed @gmail.com restriction - accept all valid email domains
 
 	if len(password) < 8 {
 		return shared.ErrWeakPassword

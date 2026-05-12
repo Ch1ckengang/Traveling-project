@@ -31,7 +31,7 @@ const OtpVerification = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const initialEmail = location.state?.email || '';
+  const initialEmail = location.state?.email || sessionStorage.getItem('pending_verification_email') || '';
   const infoMessage = location.state?.message || '';
   const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(''));
   const [statusMessage, setStatusMessage] = useState(infoMessage);
@@ -115,6 +115,7 @@ const OtpVerification = () => {
       });
 
       if (response.data.success) {
+        sessionStorage.removeItem('pending_verification_email');
         navigate('/login', {
           state: {
             message: response.data.message || 'Xác thực thành công. Bạn có thể đăng nhập ngay.'

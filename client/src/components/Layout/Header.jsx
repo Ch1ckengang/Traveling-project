@@ -14,11 +14,19 @@ const Header = () => {
   return (
     <header className="header-container">
       <div className="header-content">
+        <Link to="/" className="brand-link" aria-label="Traveling home">
+          <span className="brand-mark">T</span>
+          <span className="brand-copy">
+            <strong>Traveling</strong>
+            <small>Explore with calm</small>
+          </span>
+        </Link>
+
         <nav className="nav-links">
           <NavLink to="/" className="nav-item">Trang chủ</NavLink>
-          <NavLink to="/vietnam" className="nav-item">Du lịch Việt Nam</NavLink>
-          <NavLink to="/quocte" className="nav-item">Du lịch quốc tế</NavLink>
-          <NavLink to="/dichvu" className="nav-item">Dịch vụ</NavLink>
+          <NavLink to="/tours?category=domestic" className="nav-item">Việt Nam</NavLink>
+          <NavLink to="/tours?category=international" className="nav-item">Quốc tế</NavLink>
+          <NavLink to="/tours?category=service" className="nav-item">Dịch vụ</NavLink>
         </nav>
 
         <div className="auth-area">

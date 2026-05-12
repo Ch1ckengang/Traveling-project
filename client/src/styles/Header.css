@@ -1,7 +1,7 @@
 .header-container {
   border-bottom: 1px solid var(--line-color);
   background-color: var(--header-bg);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(14px);
   box-shadow: var(--header-shadow);
   position: sticky;
   top: 0;
@@ -11,30 +11,74 @@
 .header-content {
   max-width: 1220px;
   margin: 0 auto;
-  min-height: 68px;
+  min-height: 74px;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  padding: 0 12px;
+  gap: 20px;
+  padding: 0 14px;
+}
+
+.brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(155deg, #517a61, #315f45);
+  color: #f5faf4;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.brand-copy strong {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.brand-copy small {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
 }
 
 .nav-links {
   display: flex;
   justify-content: center;
-  gap: 26px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .nav-item {
   color: var(--text-muted);
-  font-size: 14px;
-  letter-spacing: 0.03em;
-  transition: color 0.2s ease;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  padding: 9px 13px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .nav-item.active,
 .nav-item:hover {
   color: var(--text-main);
-  text-shadow: 0 0 0 transparent;
+  background: var(--control-hover-bg);
+  border-color: var(--line-color);
 }
 
 .auth-area {
@@ -52,16 +96,24 @@
 .auth-link,
 .btn-logout,
 .user-text {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .auth-link {
   color: var(--text-muted);
+  border-radius: 999px;
+  border: 1px solid var(--line-color);
+  padding: 7px 12px;
+  transition: background-color 0.2s ease;
+}
+
+.auth-link:hover {
+  background: var(--control-hover-bg);
 }
 
 .avatar {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: 1px solid var(--line-color);
   background-color: transparent;
@@ -81,7 +133,7 @@
   color: var(--text-muted);
   border: 1px solid var(--line-color);
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 7px 12px;
   cursor: pointer;
 }
 
@@ -102,15 +154,20 @@
 @media (max-width: 768px) {
   .header-content {
     grid-template-columns: 1fr;
-    padding: 8px 12px;
-    gap: 8px;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .brand-link {
+    justify-self: flex-start;
   }
 
   .nav-links {
     justify-content: flex-start;
     overflow-x: auto;
     padding-bottom: 4px;
-    gap: 18px;
+    gap: 8px;
+    flex-wrap: nowrap;
   }
 
   .auth-area {

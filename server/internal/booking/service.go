@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"travel-backend/database"
 	"travel-backend/domain"
 	"travel-backend/internal/shared"
 	tourmodule "travel-backend/internal/tour"
@@ -53,7 +54,7 @@ func CreateBooking(req domain.CreateBookingRequest) (*domain.Booking, error) {
 		BookingCode:   bookingCode,
 		PaymentStatus: "unpaid",
 		Note:          normalizedReq.Note,
-		Status:        "pending_payment",
+		Status:        "pending", // Changed from "pending_payment" to "pending"
 	}
 
 	if err := createBookingRecord(booking); err != nil {
@@ -66,6 +67,12 @@ func CreateBooking(req domain.CreateBookingRequest) (*domain.Booking, error) {
 		}
 		return nil, shared.ErrCreateBookingFailed
 	}
+
+	// Gửi email xác nhận đặt tour (bất đồng bộ, không block request)
+	go func() {
+		_ = shared.SendBookingConfirmationEmail(booking.Email, booking.BookingCode, tour.Name, booking.TravelDate)
+
+	}()
 
 	return booking, nil
 }
@@ -83,6 +90,68 @@ func GetBookingsByUserID(userID string) ([]domain.Booking, error) {
 	}
 
 	return bookings, nil
+}
+
+// GetBookingByID - Lấy chi tiết 1 booking theo ID
+func GetBookingByID(bookingID string) (*domain.Booking, error) {
+	parsedBookingID, err := strconv.ParseUint(bookingID, 10, 32)
+	if err != nil || parsedBookingID == 0 {
+		return nil, shared.ErrInvalidBookingID
+	}
+
+	booking, err := FindBookingByID(uint(parsedBookingID))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, shared.ErrBookingNotFound
+		}
+		return nil, shared.ErrFetchBookingsFailed
+	}
+
+	return booking, nil
+}
+
+// GetBookingByCode - Lấy chi tiết booking theo mã booking code
+func GetBookingByCode(bookingCode string) (*domain.Booking, error) {
+	if bookingCode == "" {
+		return nil, shared.ErrInvalidBookingID
+	}
+
+	booking, err := FindBookingByCode(bookingCode)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, shared.ErrBookingNotFound
+		}
+		return nil, shared.ErrFetchBookingsFailed
+	}
+
+	return booking, nil
+}
+
+// ConfirmBooking - Chuyển trạng thái booking từ pending → confirmed
+func ConfirmBooking(bookingID string) (*domain.Booking, error) {
+	parsedBookingID, err := strconv.ParseUint(bookingID, 10, 32)
+	if err != nil || parsedBookingID == 0 {
+		return nil, shared.ErrInvalidBookingID
+	}
+
+	booking, err := FindBookingByID(uint(parsedBookingID))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, shared.ErrBookingNotFound
+		}
+		return nil, shared.ErrFetchBookingsFailed
+	}
+
+	if strings.ToLower(strings.TrimSpace(booking.Status)) != "pending" {
+		return nil, shared.ErrInvalidBookingID
+	}
+
+	booking.Status = "confirmed"
+	if err := database.DB.Save(booking).Error; err != nil {
+		return nil, shared.ErrCreateBookingFailed
+	}
+
+	return booking, nil
 }
 
 // CancelBookingByUserID - Hủy tour đã đặt theo user và booking id.

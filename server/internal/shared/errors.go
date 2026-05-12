@@ -20,6 +20,11 @@ var (
 	ErrOTPProcessFailed       = errors.New("Không thể xử lý mã xác thực")
 	ErrInvalidOTPCode         = errors.New("Mã xác thực không hợp lệ hoặc đã hết hạn")
 	ErrPasswordResetQueued    = errors.New("Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu")
+	ErrTokenIssueFailed       = errors.New("Không thể tạo token đăng nhập")
+	ErrInvalidRefreshToken    = errors.New("Refresh token không hợp lệ hoặc đã hết hạn")
+	ErrMissingBearerToken     = errors.New("Thiếu access token")
+	ErrInvalidAccessToken     = errors.New("Access token không hợp lệ hoặc đã hết hạn")
+	ErrForbiddenResource      = errors.New("Bạn không có quyền truy cập tài nguyên này")
 
 	ErrInvalidBookingPayload = errors.New("Dữ liệu đặt tour không hợp lệ")
 	ErrInvalidFullName       = errors.New("Họ tên không được để trống")

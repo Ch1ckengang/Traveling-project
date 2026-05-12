@@ -1,18 +1,19 @@
 .profile-container {
   min-height: 80vh;
-  padding: 40px 20px;
+  padding: 34px 20px 48px;
   max-width: 1120px;
   margin: 0 auto;
 }
 
 .profile-box {
-  background-color: var(--surface-dark);
+  background: var(--surface-elevated);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 24px;
   padding: 28px;
   display: grid;
   grid-template-columns: 260px 1fr;
   gap: 24px;
+  box-shadow: 0 16px 34px rgba(52, 76, 58, 0.09);
 }
 
 .profile-sidebar {
@@ -40,9 +41,9 @@
 .profile-menu-item {
   text-align: left;
   padding: 12px 14px;
-  border-radius: 8px;
+  border-radius: 999px;
   border: 1px solid var(--border-color);
-  background: transparent;
+  background: var(--surface-dark);
   color: var(--text-main);
   cursor: pointer;
   font-size: 14px;
@@ -62,19 +63,29 @@
   width: 100px;
   height: 100px;
   border-radius: 50%;
-  background-color: var(--primary-color);
+  background: linear-gradient(150deg, #487358, #315f45);
   margin: 0 auto 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 40px;
   font-weight: bold;
-  color: var(--text-main);
-  border: 3px solid var(--border-color);
+  color: #f2f8f3;
+  border: 3px solid color-mix(in srgb, var(--border-color) 80%, white);
+}
+
+.profile-avatar-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
 }
 
 .profile-header h2 {
   margin: 10px 0;
+  font-family: 'Fraunces', serif;
+  font-size: 30px;
+  font-weight: 500;
   color: var(--text-main);
 }
 
@@ -92,10 +103,10 @@
 }
 
 .theme-section {
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background-color: color-mix(in srgb, var(--surface-dark) 85%, transparent);
+  border-radius: 16px;
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.4), transparent 65%), var(--surface-dark);
 }
 
 .theme-mode-row {
@@ -141,12 +152,12 @@
 }
 
 .theme-toggle-pill.is-dark {
-  background-color: rgba(11, 16, 26, 0.9);
+  background-color: rgba(22, 34, 27, 0.9);
   border-color: var(--accent-color);
 }
 
 .theme-toggle-pill.is-light {
-  background-color: rgba(237, 244, 253, 0.9);
+  background-color: rgba(236, 244, 236, 0.9);
 }
 
 .theme-toggle-thumb {
@@ -169,7 +180,9 @@
 
 .form-section h3 {
   color: var(--text-main);
-  font-size: 18px;
+  font-family: 'Fraunces', serif;
+  font-size: 26px;
+  font-weight: 500;
   margin-bottom: 20px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border-color);
@@ -190,9 +203,9 @@
 .form-group input {
   width: 100%;
   padding: 12px 16px;
-  background-color: var(--bg-dark);
+  background-color: var(--input-bg);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 12px;
   color: var(--text-main);
   font-size: 15px;
   outline: none;
@@ -200,18 +213,19 @@
 }
 
 .form-group input:disabled {
-  background-color: var(--surface-dark);
+  background-color: color-mix(in srgb, var(--surface-dark) 90%, transparent);
   cursor: not-allowed;
   opacity: 0.7;
 }
 
 .form-group input:not(:disabled):focus {
   border-color: var(--primary-color);
-  background-color: var(--surface-dark);
+  background-color: var(--input-focus-bg);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-color) 20%, transparent);
 }
 
 .form-group input::placeholder {
-  color: #666;
+  color: var(--text-muted);
 }
 
 .profile-actions {
@@ -226,17 +240,17 @@
 .btn-save,
 .btn-cancel {
   padding: 12px 24px;
-  border-radius: 6px;
+  border-radius: 999px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
-  border: none;
+  border: 1px solid transparent;
 }
 
 .btn-edit {
   background-color: var(--primary-color);
-  color: var(--text-main);
+  color: #f0f7f2;
   flex: 1;
 }
 
@@ -245,8 +259,8 @@
 }
 
 .btn-save {
-  background-color: #52c41a;
-  color: var(--text-main);
+  background-color: var(--primary-color);
+  color: #f0f7f2;
   flex: 1;
 }
 
@@ -260,7 +274,7 @@
 }
 
 .btn-cancel {
-  background-color: transparent;
+  background-color: var(--surface-dark);
   color: var(--text-main);
   border: 1px solid var(--border-color);
   flex: 1;
@@ -277,22 +291,22 @@
 }
 
 .success-message {
-  background-color: rgba(82, 196, 26, 0.1);
-  border: 1px solid #52c41a;
-  color: #52c41a;
+  background-color: #e8f4e5;
+  border: 1px solid #8fc086;
+  color: #285f3d;
   padding: 12px;
-  border-radius: 6px;
+  border-radius: 12px;
   margin-bottom: 20px;
   font-size: 14px;
   text-align: center;
 }
 
 .error-message {
-  background-color: rgba(255, 77, 79, 0.1);
-  border: 1px solid var(--primary-color);
-  color: var(--primary-color);
+  background-color: #fdeced;
+  border: 1px solid #e1a2aa;
+  color: #a23a45;
   padding: 12px;
-  border-radius: 6px;
+  border-radius: 12px;
   margin-bottom: 20px;
   font-size: 14px;
   text-align: center;
@@ -318,10 +332,10 @@
 
 .btn-refresh-bookings {
   border: 1px solid var(--border-color);
-  background: transparent;
+  background: var(--surface-dark);
   color: var(--text-main);
   padding: 8px 14px;
-  border-radius: 6px;
+  border-radius: 999px;
   cursor: pointer;
 }
 
@@ -333,7 +347,7 @@
 .bookings-placeholder {
   margin: 0;
   padding: 14px;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px dashed var(--border-color);
   color: var(--text-muted);
 }
@@ -346,9 +360,9 @@
 
 .booking-card {
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 16px;
-  background: color-mix(in srgb, var(--surface-dark) 90%, transparent);
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.55), transparent 66%), var(--surface-dark);
 }
 
 .booking-card-top {
@@ -367,7 +381,8 @@
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--border-color);
-  color: var(--text-muted);
+  color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 12%, transparent);
   font-size: 12px;
   text-transform: capitalize;
 }
@@ -397,19 +412,19 @@
 }
 
 .btn-cancel-booking {
-  border: 1px solid rgba(255, 77, 79, 0.65);
-  background: rgba(255, 77, 79, 0.08);
-  color: #ff7d7f;
+  border: 1px solid #d4949b;
+  background: #fbeff0;
+  color: #a3444e;
   padding: 8px 14px;
-  border-radius: 6px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
 }
 
 .btn-cancel-booking:hover:not(:disabled) {
-  background: rgba(255, 77, 79, 0.16);
-  border-color: #ff7d7f;
+  background: #f6dee1;
+  border-color: #b86e78;
 }
 
 .btn-cancel-booking:disabled {

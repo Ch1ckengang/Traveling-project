@@ -1,6 +1,7 @@
 package tour
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"travel-backend/domain"
 	"unicode"
 )
+
 
 // TourService - Tầng chứa business logic cho Tour
 // Hiện tại chỉ đơn giản là lấy dữ liệu,
@@ -75,6 +77,27 @@ func GetToursByFilter(filter TourFilter) ([]domain.Tour, error) {
 func CreateToursIfEmpty() error {
 	return seedToursIfEmpty()
 }
+
+// GetTourByID - Lấy chi tiết 1 tour theo ID (string)
+func GetTourByID(id string) (*domain.Tour, error) {
+	if id == "" {
+		return nil, fmt.Errorf("ID tour không hợp lệ")
+	}
+	tour, err := FindTourByIDString(id)
+	if err != nil {
+		return nil, fmt.Errorf("Không tìm thấy tour")
+	}
+	return tour, nil
+}
+
+// SearchToursByKeyword - Tìm kiếm tour theo từ khóa
+func SearchToursByKeyword(keyword string) ([]domain.Tour, error) {
+	if keyword == "" {
+		return FindAllTours()
+	}
+	return SearchTours(keyword)
+}
+
 
 func matchesCity(tour domain.Tour, cityQuery string) bool {
 	location := strings.ToLower(tour.Location)

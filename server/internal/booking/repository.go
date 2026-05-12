@@ -3,6 +3,7 @@ package booking
 import (
 	"errors"
 	"strings"
+	"time"
 	"travel-backend/database"
 	"travel-backend/domain"
 
@@ -31,6 +32,36 @@ func FindBookingsByUserID(userID uint) ([]domain.Booking, error) {
 
 	return bookings, nil
 }
+
+// FindBookingByID - Lấy thông tin chi tiết 1 booking theo ID
+func FindBookingByID(bookingID uint) (*domain.Booking, error) {
+	var booking domain.Booking
+	err := database.DB.
+		Preload("Tour").
+		First(&booking, bookingID).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &booking, nil
+}
+
+// FindBookingByCode - Tìm booking theo mã booking_code
+func FindBookingByCode(bookingCode string) (*domain.Booking, error) {
+	var booking domain.Booking
+	err := database.DB.
+		Preload("Tour").
+		Where("booking_code = ?", bookingCode).
+		First(&booking).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &booking, nil
+}
+
 
 // CancelBookingByUserID - Hủy booking của đúng người dùng và hoàn lại số chỗ cho tour.
 func cancelBookingByUserID(userID, bookingID uint) (*domain.Booking, error) {
@@ -78,4 +109,10 @@ func cancelBookingByUserID(userID, bookingID uint) (*domain.Booking, error) {
 	}
 
 	return &booking, nil
+}
+// updateBookingPaymentDeadline - Cập nhật deadline thanh toán cho booking
+func updateBookingPaymentDeadline(bookingID uint, deadline *time.Time) error {
+	return database.DB.Model(&domain.Booking{}).
+		Where("id = ?", bookingID).
+		Update("payment_deadline", deadline).Error
 }

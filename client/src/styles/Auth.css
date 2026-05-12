@@ -1,33 +1,33 @@
 :root {
-  --auth-primary: #185fa5;
-  --auth-primary-hover: #0c447c;
-  --auth-border: rgba(201, 213, 228, 0.95);
+  --auth-primary: #315f45;
+  --auth-primary-hover: #264b36;
+  --auth-border: #cfdbd0;
   --auth-surface: #ffffff;
-  --auth-surface-subtle: #f6f9fc;
-  --auth-text: #11253d;
-  --auth-muted: #5c728d;
-  --auth-outline-hover: #edf2f8;
-  --auth-focus-ring: rgba(24, 95, 165, 0.18);
+  --auth-surface-subtle: #f3f7f2;
+  --auth-text: #223126;
+  --auth-muted: #5f7062;
+  --auth-outline-hover: #e9f0ea;
+  --auth-focus-ring: rgba(49, 95, 69, 0.18);
   --auth-error-bg: #fdeced;
   --auth-error: #b3323d;
   --auth-success-bg: #e8f4e5;
   --auth-success-text: #2f7a2e;
-  --auth-side-gradient: linear-gradient(150deg, #185fa5, #2d8ce0 56%, #8bc6ff);
+  --auth-side-gradient: linear-gradient(150deg, #426c52, #315f45 55%, #6f9f7f);
 }
 
 :root[data-theme='dark'] {
-  --auth-border: rgba(95, 112, 137, 0.5);
-  --auth-surface: #0f1c2e;
-  --auth-surface-subtle: #15263d;
-  --auth-text: #f0f6ff;
-  --auth-muted: #b0bfd4;
-  --auth-outline-hover: #1a2f4d;
-  --auth-focus-ring: rgba(71, 149, 226, 0.24);
+  --auth-border: #395042;
+  --auth-surface: #1a2820;
+  --auth-surface-subtle: #24362b;
+  --auth-text: #e9f1eb;
+  --auth-muted: #a9b7ac;
+  --auth-outline-hover: #2a3f33;
+  --auth-focus-ring: rgba(142, 199, 156, 0.24);
   --auth-error-bg: rgba(179, 50, 61, 0.22);
   --auth-error: #ffb5bc;
   --auth-success-bg: rgba(52, 112, 69, 0.25);
   --auth-success-text: #bde4c1;
-  --auth-side-gradient: linear-gradient(150deg, #154d86, #236cb1 56%, #4ea2e5);
+  --auth-side-gradient: linear-gradient(150deg, #284234, #345c45 56%, #4f7e62);
 }
 
 .auth-shell {
@@ -35,7 +35,7 @@
   padding: 24px;
   display: grid;
   place-items: center;
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
 }
 
 .auth-grid {
@@ -48,14 +48,14 @@
 
 .auth-side-panel {
   background: var(--auth-side-gradient);
-  border-radius: 12px;
+  border-radius: 20px;
   color: #f4faff;
   padding: 34px 30px;
   border: 0.5px solid rgba(255, 255, 255, 0.3);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  box-shadow: 0 18px 36px rgba(12, 49, 87, 0.18);
+  box-shadow: 0 18px 36px rgba(24, 40, 30, 0.2);
 }
 
 .auth-side-label {
@@ -68,7 +68,9 @@
 
 .auth-side-panel h1 {
   margin: 0 0 12px;
-  font-size: clamp(28px, 3vw, 38px);
+  font-family: 'Fraunces', serif;
+  font-size: clamp(30px, 3vw, 40px);
+  font-weight: 500;
   line-height: 1.14;
 }
 
@@ -80,11 +82,11 @@
 }
 
 .auth-card {
-  border-radius: 12px;
+  border-radius: 20px;
   border: 0.5px solid var(--auth-border);
   background: var(--auth-surface);
   padding: 24px;
-  box-shadow: 0 14px 30px rgba(12, 26, 46, 0.08);
+  box-shadow: 0 14px 30px rgba(52, 76, 58, 0.08);
 }
 
 .auth-card-header {
@@ -93,7 +95,9 @@
 
 .auth-card-header h2 {
   margin: 0;
-  font-size: 28px;
+  font-family: 'Fraunces', serif;
+  font-size: 32px;
+  font-weight: 500;
   color: var(--auth-text);
 }
 
@@ -160,8 +164,8 @@
 
 .form-group input {
   width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
   border: 0.5px solid var(--auth-border);
   background: var(--auth-surface-subtle);
   color: var(--auth-text);
@@ -244,8 +248,8 @@
 .btn-primary,
 .btn-outline {
   width: 100%;
-  min-height: 40px;
-  border-radius: 8px;
+  min-height: 42px;
+  border-radius: 999px;
   border: 0.5px solid transparent;
   font-size: 14px;
   font-weight: 600;
