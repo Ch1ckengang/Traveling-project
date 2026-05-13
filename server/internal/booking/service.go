@@ -11,6 +11,7 @@ import (
 	"travel-backend/database"
 	"travel-backend/domain"
 	"travel-backend/internal/coupon"
+	"travel-backend/internal/notification"
 	"travel-backend/internal/shared"
 	tourmodule "travel-backend/internal/tour"
 	"unicode"
@@ -96,7 +97,10 @@ func CreateBooking(req domain.CreateBookingRequest) (*domain.Booking, error) {
 	// Gửi email xác nhận đặt tour (bất đồng bộ, không block request)
 	go func() {
 		_ = shared.SendBookingConfirmationEmail(booking.Email, booking.BookingCode, tour.Name, booking.TravelDate)
-
+		
+		// Gửi thông báo trong app
+		msg := fmt.Sprintf("Bạn đã đặt thành công tour %s. Mã đặt chỗ: %s.", tour.Name, booking.BookingCode)
+		_ = notification.SendNotification(booking.UserID, "Đặt tour thành công", msg, domain.NotifTypeBooking)
 	}()
 
 	return booking, nil

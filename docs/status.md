@@ -136,12 +136,23 @@ PUT    /v1/api/admin/users/:id/role              (Admin only - handled in logic)
 | `pages/admin/Dashboard.jsx` | Giao diện tổng quan & Biểu đồ (Recharts) | ✅ |
 | `pages/admin/Reports.jsx` | Báo cáo chi tiết & CSV Export | ✅ |
 
-## 🔄 PHASE 6: NOTIFICATION — ĐANG THỰC HIỆN
+## ✅ PHASE 6: NOTIFICATION — HOÀN THÀNH
 
-- [ ] Email templates
-- [ ] Notification model + API
-- [ ] Frontend notification bell
-- [ ] Cronjob departure reminders
+### Backend
+| File | Mô tả | Trạng thái |
+|------|--------|------------|
+| `domain/notification.go` | Notification model | ✅ |
+| `notification/repository.go` | CRUD + queries | ✅ |
+| `notification/service.go` | Send Notification logic | ✅ |
+| `notification/handler.go` | Get & Mark as read API | ✅ |
+| `booking/service.go` | Trigger Notification on Booking | ✅ |
+
+### Frontend
+| File | Mô tả | Trạng thái |
+|------|--------|------------|
+| `services/notificationService.js` | Gọi API thông báo | ✅ |
+| `components/common/NotificationBell.jsx` | UI chuông & Dropdown | ✅ |
+| `components/Layout/Header.jsx` | Gắn chuông vào header | ✅ |
 
 ## ⬜ PHASE 7: POLISH — CHƯA BẮT ĐẦU
 

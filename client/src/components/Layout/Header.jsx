@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import NotificationBell from '../common/NotificationBell';
 import '../../styles/Header.css';
 
 const Header = () => {
@@ -31,8 +32,9 @@ const Header = () => {
 
         <div className="auth-area">
           {isLoggedIn ? (
-            <div className="user-profile">
-              <Link to="/profile" className="avatar-link">
+            <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <NotificationBell />
+              <Link to="/profile" className="avatar-link" style={{ marginLeft: '10px' }}>
                 <div className="avatar">{user?.name?.charAt(0).toUpperCase()}</div>
               </Link>
               <span className="user-text">{user?.name}</span>

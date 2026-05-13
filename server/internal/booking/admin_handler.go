@@ -6,7 +6,9 @@ import (
 	"strings"
 	"travel-backend/database"
 	"travel-backend/domain"
+	"travel-backend/internal/notification"
 	"travel-backend/internal/shared"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -117,6 +119,11 @@ func AdminConfirmBookingHandler(c *gin.Context) {
 
 	database.DB.Preload("Tour").First(&booking, booking.ID)
 
+	go func() {
+		msg := fmt.Sprintf("Đặt chỗ của bạn cho tour %s đã được xác nhận. Vui lòng thanh toán nếu chưa thực hiện.", booking.Tour.Name)
+		_ = notification.SendNotification(booking.UserID, "Đã xác nhận đặt chỗ", msg, domain.NotifTypeBooking)
+	}()
+
 	shared.RespondSuccess(c, http.StatusOK, "Xác nhận booking thành công", gin.H{
 		"booking": booking.ToBookingWithPayment(),
 	})
@@ -164,6 +171,11 @@ func AdminCancelBookingHandler(c *gin.Context) {
 		UpdateColumn("remaining_slots", database.DB.Raw("remaining_slots + ?", booking.Quantity))
 
 	database.DB.Preload("Tour").First(&booking, booking.ID)
+
+	go func() {
+		msg := fmt.Sprintf("Rất tiếc, đặt chỗ của bạn cho tour %s đã bị hủy bởi quản trị viên. Lý do: %s", booking.Tour.Name, req.Reason)
+		_ = notification.SendNotification(booking.UserID, "Đã hủy đặt chỗ", msg, domain.NotifTypeBooking)
+	}()
 
 	shared.RespondSuccess(c, http.StatusOK, "Hủy booking thành công", gin.H{
 		"booking": booking.ToBookingWithPayment(),

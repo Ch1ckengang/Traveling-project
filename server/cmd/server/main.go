@@ -9,6 +9,7 @@ import (
 	"travel-backend/internal/booking"
 	"travel-backend/internal/coupon"
 	"travel-backend/internal/dashboard"
+	"travel-backend/internal/notification"
 	"travel-backend/internal/payment"
 	"travel-backend/internal/review"
 	"travel-backend/internal/shared"
@@ -35,7 +36,7 @@ func main() {
 	shared.InitEmailService()
 
 	// Auto migrate: tự động tạo/cập nhật cấu trúc bảng
-	if err := database.DB.AutoMigrate(&domain.User{}, &domain.Tour{}, &domain.Booking{}, &domain.Payment{}, &domain.PaymentAuditLog{}, &domain.OTP{}, &domain.Review{}, &domain.Coupon{}); err != nil {
+	if err := database.DB.AutoMigrate(&domain.User{}, &domain.Tour{}, &domain.Booking{}, &domain.Payment{}, &domain.PaymentAuditLog{}, &domain.OTP{}, &domain.Review{}, &domain.Coupon{}, &domain.Notification{}); err != nil {
 		log.Printf("⚠️ AutoMigrate error: %v", err)
 	} else {
 		log.Println("✅ AutoMigrate completed successfully")
@@ -117,6 +118,11 @@ func main() {
 
 			// Coupon routes
 			protected.POST("/coupons/validate", coupon.ValidateCouponHandler)
+
+			// Notification routes
+			protected.GET("/notifications", notification.GetNotificationsHandler)
+			protected.PUT("/notifications/:id/read", notification.MarkAsReadHandler)
+			protected.PUT("/notifications/read-all", notification.MarkAllAsReadHandler)
 		}
 
 		// Payment routes (public - VNPay callbacks)

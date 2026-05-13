@@ -5,7 +5,9 @@ import (
 	"strconv"
 	"travel-backend/domain"
 	authmodule "travel-backend/internal/auth"
+	"travel-backend/internal/notification"
 	"travel-backend/internal/shared"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -121,6 +123,11 @@ func AdminReplyReviewHandler(c *gin.Context) {
 		shared.RespondError(c, http.StatusBadRequest, err.Error(), "ADMIN_REVIEW_REPLY_FAILED")
 		return
 	}
+
+	go func() {
+		msg := fmt.Sprintf("Quản trị viên đã trả lời đánh giá của bạn: \"%s\"", req.Reply)
+		_ = notification.SendNotification(review.UserID, "Phản hồi đánh giá mới", msg, domain.NotifTypeReview)
+	}()
 
 	shared.RespondSuccess(c, http.StatusOK, "Đã phản hồi review", gin.H{
 		"review_id":   review.ID,

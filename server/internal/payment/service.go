@@ -7,6 +7,7 @@ import (
 	"time"
 	"travel-backend/database"
 	"travel-backend/domain"
+	"travel-backend/internal/notification"
 	"travel-backend/internal/shared"
 )
 
@@ -260,6 +261,15 @@ func (s *PaymentService) handlePaymentSuccess(payment *domain.Payment, responseC
 
 	// Gửi email xác nhận
 	s.sendPaymentConfirmationEmail(payment)
+
+	// Gửi thông báo trong app
+	go func(bookingID uint) {
+		var b domain.Booking
+		if err := database.DB.Preload("Tour").First(&b, bookingID).Error; err == nil {
+			msg := fmt.Sprintf("Thanh toán thành công cho tour %s. Số tiền: %s.", b.Tour.Name, domain.FormatPriceVND(payment.Amount))
+			_ = notification.SendNotification(b.UserID, "Thanh toán thành công", msg, domain.NotifTypePayment)
+		}
+	}(payment.BookingID)
 
 	log.Printf("[PAYMENT][SUCCESS] payment_id=%d ref=%s prev_status=%s new_status=paid",
 		payment.ID, payment.TransactionReference, previousStatus)
