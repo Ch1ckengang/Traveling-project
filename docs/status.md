@@ -121,13 +121,22 @@ PUT    /v1/api/admin/users/:id/role              (Admin only - handled in logic)
 - [x] Admin CRUD + usage tracking
 - [x] Frontend: CouponInput + AdminCouponsPage
 
-## 🔄 PHASE 5: ADMIN DASHBOARD & REPORT — ĐANG THỰC HIỆN
+## ✅ PHASE 5: ADMIN DASHBOARD & REPORT — HOÀN THÀNH
 
-- [ ] Dashboard summary/revenue/top-tours APIs
-- [ ] AdminDashboardPage + charts (Recharts)
-- [ ] CSV export
+### Backend
+| File | Mô tả | Trạng thái |
+|------|--------|------------|
+| `dashboard/service.go` | Logic thống kê summary, revenue, top tours | ✅ |
+| `dashboard/admin_handler.go` | Dashboard APIs | ✅ |
 
-## ⬜ PHASE 6: NOTIFICATION — CHƯA BẮT ĐẦU
+### Frontend
+| File | Mô tả | Trạng thái |
+|------|--------|------------|
+| `services/dashboardService.js` | Gọi API thống kê | ✅ |
+| `pages/admin/Dashboard.jsx` | Giao diện tổng quan & Biểu đồ (Recharts) | ✅ |
+| `pages/admin/Reports.jsx` | Báo cáo chi tiết & CSV Export | ✅ |
+
+## 🔄 PHASE 6: NOTIFICATION — ĐANG THỰC HIỆN
 
 - [ ] Email templates
 - [ ] Notification model + API

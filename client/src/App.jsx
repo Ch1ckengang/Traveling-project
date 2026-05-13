@@ -23,13 +23,13 @@ import AdminBookingsPage from './pages/admin/Bookings';
 import AdminUsersPage from './pages/admin/Users';
 import AdminCouponsPage from './pages/admin/Coupons';
 import AdminReviewsPage from './pages/admin/Reviews';
+import AdminReportsPage from './pages/admin/Reports';
 import PaymentResultPage from './pages/payment/PaymentResult';
 import './App.css';
 
 const AccountPasswordPage = () => <div>AccountPasswordPage</div>;
 const AdminSchedulesPage = () => <div>AdminSchedulesPage</div>;
 const AdminPaymentsPage = () => <div>AdminPaymentsPage</div>;
-const AdminReportsPage = () => <div>AdminReportsPage</div>;
 
 function AppRoutes() {
   return (

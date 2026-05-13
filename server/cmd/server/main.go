@@ -8,6 +8,7 @@ import (
 	"travel-backend/internal/auth"
 	"travel-backend/internal/booking"
 	"travel-backend/internal/coupon"
+	"travel-backend/internal/dashboard"
 	"travel-backend/internal/payment"
 	"travel-backend/internal/review"
 	"travel-backend/internal/shared"
@@ -132,6 +133,11 @@ func main() {
 			admin.PUT("/tours/:id", tour.AdminUpdateTourHandler)
 			admin.DELETE("/tours/:id", tour.AdminDeleteTourHandler)
 			admin.PUT("/tours/:id/toggle", tour.AdminToggleTourHandler)
+
+			// Admin Dashboard
+			admin.GET("/dashboard/summary", dashboard.AdminGetDashboardSummaryHandler)
+			admin.GET("/dashboard/revenue-chart", dashboard.AdminGetRevenueChartHandler)
+			admin.GET("/dashboard/top-tours", dashboard.AdminGetTopToursHandler)
 
 			// Admin Booking Management
 			admin.GET("/bookings", booking.AdminGetBookingsHandler)
