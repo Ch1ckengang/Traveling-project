@@ -19,6 +19,7 @@ import (
 type tokenClaims struct {
 	UserID uint   `json:"uid"`
 	Email  string `json:"email"`
+	Role   string `json:"role"`
 	Type   string `json:"typ"`
 	JTI    string `json:"jti"`
 	jwt.RegisteredClaims
@@ -80,6 +81,7 @@ func refreshTokenPair(rawRefreshToken string) (*domain.TokenPair, error) {
 	user := &domain.User{
 		ID:    claims.UserID,
 		Email: claims.Email,
+		Role:  claims.Role,
 	}
 
 	pair, err := issueTokenPair(user)
@@ -144,9 +146,15 @@ func parseAndValidateToken(tokenString, expectedType string) (*tokenClaims, erro
 func signToken(user *domain.User, tokenType, jti string, issuedAt, expiresAt time.Time) (string, error) {
 	issuer := getEnvOrDefault("JWT_ISSUER", defaultJWTIssuer)
 
+	role := user.Role
+	if role == "" {
+		role = domain.RoleCustomer
+	}
+
 	claims := tokenClaims{
 		UserID: user.ID,
 		Email:  user.Email,
+		Role:   role,
 		Type:   tokenType,
 		JTI:    jti,
 		RegisteredClaims: jwt.RegisteredClaims{

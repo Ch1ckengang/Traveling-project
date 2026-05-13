@@ -2,12 +2,13 @@ package tour
 
 import (
 	"net/http"
+	"travel-backend/internal/shared"
 
 	"github.com/gin-gonic/gin"
 )
 
 // TourController - Tầng xử lý HTTP cho Tour
-// Nhận request → gọi service → trả JSON
+// Nhận request → gọi service → trả JSON (sử dụng response chuẩn)
 
 func buildTourFilter(c *gin.Context, category string) TourFilter {
 	return TourFilter{
@@ -25,14 +26,13 @@ func GetToursHandler(c *gin.Context) {
 
 	tours, err := GetToursByFilter(filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Không thể lấy danh sách tour",
-		})
+		shared.RespondError(c, http.StatusInternalServerError, "Không thể lấy danh sách tour", "TOUR_FETCH_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusOK, tours)
+	shared.RespondSuccessWithMeta(c, http.StatusOK, "", tours, map[string]interface{}{
+		"total": len(tours),
+	})
 }
 
 // GetDomesticToursHandler - Xử lý GET /api/tours/domestic
@@ -41,14 +41,13 @@ func GetDomesticToursHandler(c *gin.Context) {
 
 	tours, err := GetToursByFilter(filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Không thể lấy danh sách tour du lịch Việt Nam",
-		})
+		shared.RespondError(c, http.StatusInternalServerError, "Không thể lấy danh sách tour du lịch Việt Nam", "TOUR_FETCH_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusOK, tours)
+	shared.RespondSuccessWithMeta(c, http.StatusOK, "", tours, map[string]interface{}{
+		"total": len(tours),
+	})
 }
 
 // GetInternationalToursHandler - Xử lý GET /api/tours/international
@@ -57,14 +56,13 @@ func GetInternationalToursHandler(c *gin.Context) {
 
 	tours, err := GetToursByFilter(filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Không thể lấy danh sách tour du lịch quốc tế",
-		})
+		shared.RespondError(c, http.StatusInternalServerError, "Không thể lấy danh sách tour du lịch quốc tế", "TOUR_FETCH_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusOK, tours)
+	shared.RespondSuccessWithMeta(c, http.StatusOK, "", tours, map[string]interface{}{
+		"total": len(tours),
+	})
 }
 
 // GetTourByIDHandler - Xử lý GET /api/tours/:id
@@ -73,17 +71,11 @@ func GetTourByIDHandler(c *gin.Context) {
 
 	tour, err := GetTourByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		shared.RespondError(c, http.StatusNotFound, err.Error(), "TOUR_NOT_FOUND")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    tour,
-	})
+	shared.RespondSuccess(c, http.StatusOK, "", gin.H{"tour": tour})
 }
 
 // SearchToursHandler - Xử lý GET /api/tours/search?q=keyword
@@ -92,17 +84,11 @@ func SearchToursHandler(c *gin.Context) {
 
 	tours, err := SearchToursByKeyword(keyword)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Không thể tìm kiếm tour",
-		})
+		shared.RespondError(c, http.StatusInternalServerError, "Không thể tìm kiếm tour", "TOUR_SEARCH_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    tours,
-		"total":   len(tours),
+	shared.RespondSuccessWithMeta(c, http.StatusOK, "", tours, map[string]interface{}{
+		"total": len(tours),
 	})
 }
-

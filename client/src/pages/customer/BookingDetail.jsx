@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getBookingById, cancelBooking } from '../../services/bookingService';
+import { redirectToPayment } from '../../services/paymentService';
 import { formatCurrency } from '../../utils/formatCurrency';
 import Spinner from '../../components/ui/Spinner';
 
@@ -13,6 +14,7 @@ const BookingDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [cancelling, setCancelling] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     if (!user?.id) {
@@ -302,12 +304,20 @@ const BookingDetailPage = () => {
 
             {/* Actions */}
             <div className="space-y-3">
-              {booking.status === 'pending' && (
+              {(booking.status === 'booked' || booking.status === 'pending') && booking.payment_status !== 'paid' && (
                 <button
-                  onClick={() => navigate(`/payment/${booking.id}`)}
-                  className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                  onClick={async () => {
+                    setPaying(true);
+                    const result = await redirectToPayment(booking.id);
+                    if (!result.success) {
+                      alert(result.message);
+                      setPaying(false);
+                    }
+                  }}
+                  disabled={paying}
+                  className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50"
                 >
-                  Thanh toán ngay
+                  {paying ? 'Đang chuyển đến thanh toán...' : 'Thanh toán ngay'}
                 </button>
               )}
 
@@ -327,6 +337,15 @@ const BookingDetailPage = () => {
               >
                 Quay lại
               </button>
+
+              {(booking.status === 'completed' || booking.status === 'confirmed') && (
+                <button
+                  onClick={() => navigate(`/account/reviews/write?tourId=${booking.tour_id}&bookingId=${booking.id}&tourName=${encodeURIComponent(booking.tour?.name || '')}`)}
+                  className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium mt-4"
+                >
+                  ⭐ Viết đánh giá
+                </button>
+              )}
             </div>
           </div>
 

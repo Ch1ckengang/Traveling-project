@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axiosInstance from '../../utils/axiosInstance';
 import BookingModal from '../../components/booking/BookingModal';
+import ReviewList from '../../components/review/ReviewList';
 
 const TourDetailPage = () => {
   const { tourId } = useParams();
@@ -149,6 +150,9 @@ const TourDetailPage = () => {
               </div>
             </div>
           )}
+
+          {/* Reviews */}
+          <ReviewList tourId={tour.id} />
         </div>
 
         {/* Sidebar - Booking Card */}

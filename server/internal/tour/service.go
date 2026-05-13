@@ -61,7 +61,7 @@ func GetToursByFilter(filter TourFilter) ([]domain.Tour, error) {
 			continue
 		}
 
-		if price != "" && price != "all" && !matchesPrice(tour.Price, price) {
+		if price != "" && price != "all" && !matchesPriceAmount(tour.PriceAmount, price) {
 			continue
 		}
 
@@ -123,8 +123,7 @@ func matchesDuration(durationText, durationFilter string) bool {
 	}
 }
 
-func matchesPrice(priceText, priceFilter string) bool {
-	amount := extractPrice(priceText)
+func matchesPriceAmount(amount int64, priceFilter string) bool {
 	if amount <= 0 {
 		return true
 	}
@@ -180,11 +179,11 @@ func applySort(tours []domain.Tour, sortBy string) {
 	switch sortBy {
 	case "price_asc":
 		sort.SliceStable(tours, func(i, j int) bool {
-			return extractPrice(tours[i].Price) < extractPrice(tours[j].Price)
+			return tours[i].PriceAmount < tours[j].PriceAmount
 		})
 	case "price_desc":
 		sort.SliceStable(tours, func(i, j int) bool {
-			return extractPrice(tours[i].Price) > extractPrice(tours[j].Price)
+			return tours[i].PriceAmount > tours[j].PriceAmount
 		})
 	case "duration_asc":
 		sort.SliceStable(tours, func(i, j int) bool {
@@ -201,6 +200,14 @@ func applySort(tours []domain.Tour, sortBy string) {
 	case "name_desc":
 		sort.SliceStable(tours, func(i, j int) bool {
 			return strings.ToLower(tours[i].Name) > strings.ToLower(tours[j].Name)
+		})
+	case "rating":
+		sort.SliceStable(tours, func(i, j int) bool {
+			return tours[i].Rating > tours[j].Rating
+		})
+	case "popular":
+		sort.SliceStable(tours, func(i, j int) bool {
+			return tours[i].ReviewCount > tours[j].ReviewCount
 		})
 	case "latest":
 		sort.SliceStable(tours, func(i, j int) bool {

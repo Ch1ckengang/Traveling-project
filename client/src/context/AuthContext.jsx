@@ -55,6 +55,11 @@ export const AuthProvider = ({ children }) => {
   // Trạng thái đăng nhập được suy ra trực tiếp từ user
   const isLoggedIn = Boolean(user);
 
+  // Role-based computed values
+  const userRole = user?.role || 'customer';
+  const isAdmin = userRole === 'admin';
+  const isStaff = userRole === 'staff' || userRole === 'admin';
+
   /**
    * login - Hàm xử lý khi user đăng nhập thành công
    * @param {Object} userData - Thông tin user từ API {id, name, email}
@@ -205,6 +210,9 @@ export const AuthProvider = ({ children }) => {
       user,
       tokens,
       isLoggedIn,
+      userRole,
+      isAdmin,
+      isStaff,
       login,
       logout,
       updateTokens,

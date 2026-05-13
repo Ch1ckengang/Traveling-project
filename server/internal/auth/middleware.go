@@ -12,6 +12,7 @@ import (
 const contextUserIDKey = "auth_user_id"
 
 // AuthRequired - middleware yêu cầu Bearer access token hợp lệ.
+// Sau khi verify token, set user_id và role vào context
 func AuthRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rawHeader := strings.TrimSpace(c.GetHeader("Authorization"))
@@ -36,6 +37,7 @@ func AuthRequired() gin.HandlerFunc {
 		}
 
 		c.Set(contextUserIDKey, claims.UserID)
+		c.Set("auth_user_role", claims.Role)
 		c.Next()
 	}
 }
@@ -55,6 +57,21 @@ func GetAuthenticatedUserID(c *gin.Context) (uint, bool) {
 	return userID, true
 }
 
+// GetAuthenticatedUserRole - lấy role từ access token đã verify.
+func GetAuthenticatedUserRole(c *gin.Context) string {
+	value, exists := c.Get("auth_user_role")
+	if !exists {
+		return ""
+	}
+
+	role, ok := value.(string)
+	if !ok {
+		return ""
+	}
+
+	return role
+}
+
 // EnsurePathUserMatchesToken - đảm bảo /users/:id là chính chủ.
 func EnsurePathUserMatchesToken(c *gin.Context, paramName string) bool {
 	authUserID, ok := GetAuthenticatedUserID(c)
@@ -71,6 +88,11 @@ func EnsurePathUserMatchesToken(c *gin.Context, paramName string) bool {
 	}
 
 	if uint(parsedID) != authUserID {
+		// Admin có thể truy cập tài nguyên của user khác
+		role := GetAuthenticatedUserRole(c)
+		if role == "admin" {
+			return true
+		}
 		respondError(c, http.StatusForbidden, shared.ErrForbiddenResource.Error(), "AUTH_FORBIDDEN_RESOURCE")
 		return false
 	}

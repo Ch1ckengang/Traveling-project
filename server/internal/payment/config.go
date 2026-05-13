@@ -180,6 +180,25 @@ func LoadConfigFromEnv() (*VNPayConfig, error) {
 	return config, nil
 }
 
+// LoadVNPayConfig - Load VNPay config từ env, trả về sandbox defaults nếu thiếu config
+// Dùng trong main.go khi khởi tạo server
+func LoadVNPayConfig() *VNPayConfig {
+	config, err := LoadConfigFromEnv()
+	if err != nil {
+		// Fallback: sandbox defaults cho development
+		config = &VNPayConfig{
+			Environment:    "sandbox",
+			MerchantID:     getEnvOrDefault("VNPAY_MERCHANT_ID", "DEMO"),
+			SecretKey:      getEnvOrDefault("VNPAY_SECRET_KEY", "DEMO_SECRET_KEY"),
+			ReturnURL:      getEnvOrDefault("VNPAY_RETURN_URL", "http://localhost:8080/v1/api/payments/return"),
+			IPNURL:         getEnvOrDefault("VNPAY_IPN_URL", "http://localhost:8080/v1/api/payments/webhook"),
+			PaymentTimeout: 15,
+		}
+		fmt.Printf("⚠️ VNPay config validation failed: %v. Using sandbox defaults.\n", err)
+	}
+	return config
+}
+
 // getEnvOrDefault retrieves an environment variable or returns a default value
 // Trims whitespace from the retrieved value
 func getEnvOrDefault(key, fallback string) string {

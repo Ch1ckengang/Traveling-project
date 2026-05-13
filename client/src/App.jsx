@@ -23,6 +23,7 @@ import AdminBookingsPage from './pages/admin/Bookings';
 import AdminUsersPage from './pages/admin/Users';
 import AdminCouponsPage from './pages/admin/Coupons';
 import AdminReviewsPage from './pages/admin/Reviews';
+import PaymentResultPage from './pages/payment/PaymentResult';
 import './App.css';
 
 const AccountPasswordPage = () => <div>AccountPasswordPage</div>;
@@ -51,6 +52,9 @@ function AppRoutes() {
         <Route path='/reset-password' element={<ResetPasswordPage />} />
         <Route path='/otp-verification' element={<OtpVerificationPage />} />
         <Route path='/reset-success' element={<ResetPasswordPage />} />
+
+        {/* Payment result (VNPay redirect) */}
+        <Route path='/payment/result' element={<PaymentResultPage />} />
       </Route>
 
       <Route element={<AccountLayout />}>

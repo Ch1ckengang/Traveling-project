@@ -36,7 +36,7 @@ func CreateBooking(req domain.CreateBookingRequest) (*domain.Booking, error) {
 		return nil, shared.ErrInsufficientSlots
 	}
 
-	totalAmount := calculateBookingTotal(extractPriceAmount(tour.Price), normalizedReq.AdultCount, normalizedReq.ChildCount)
+	totalAmount := calculateBookingTotal(tour.PriceAmount, normalizedReq.AdultCount, normalizedReq.ChildCount)
 	bookingCode := generateBookingCode()
 
 	booking := &domain.Booking{
