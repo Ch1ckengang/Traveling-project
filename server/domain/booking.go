@@ -17,6 +17,8 @@ type Booking struct {
 	Quantity        int        `json:"quantity" gorm:"not null"`
 	TravelDate      string     `json:"travel_date" gorm:"not null"`
 	TotalAmount     int64      `json:"total_amount" gorm:"not null;default:0"`
+	CouponCode      string     `json:"coupon_code" gorm:"size:50"`
+	DiscountAmount  int64      `json:"discount_amount" gorm:"default:0"`
 	BookingCode     string     `json:"booking_code" gorm:"uniqueIndex;default:''"`
 	PaymentStatus   string     `json:"payment_status" gorm:"not null;default:'unpaid'"`
 	PaymentID       *uint      `json:"payment_id" gorm:"index"`

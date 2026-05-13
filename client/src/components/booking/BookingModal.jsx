@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createBooking } from '../../services/bookingService';
+import { validateCoupon } from '../../services/couponService';
 import DateInput from '../ui/DateInput';
 
 const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
@@ -11,17 +12,74 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
     childCount: 0,
     infantCount: 0,
     travelDate: '',
-    notes: ''
+    travelDate: '',
+    notes: '',
+    couponCode: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Coupon state
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState(null);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Reset coupon if changing people count since it affects total
+    if (['adultCount', 'childCount', 'infantCount'].includes(name)) {
+      setAppliedCoupon(null);
+      setCouponError(null);
+    }
+    
+    if (name === 'couponCode') {
+      setCouponError(null);
+      setFormData(prev => ({
+        ...prev,
+        [name]: value.toUpperCase()
+      }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
+  };
+
+  // Helper to calculate raw total amount
+  const calculateTotal = () => {
+    // Assuming tour.price_amount is available or parse tour.price
+    const priceRaw = tour.price_amount || parseInt(tour.price.replace(/\D/g, '')) || 0;
+    const adults = parseInt(formData.adultCount || 0);
+    const children = parseInt(formData.childCount || 0);
+    const infants = parseInt(formData.infantCount || 0);
+    
+    // Adult: 100%, Child: 75%, Infant: 25% (Matching backend logic)
+    const adultTotal = priceRaw * adults;
+    const childTotal = (priceRaw * 75 / 100) * children;
+    const infantTotal = (priceRaw * 25 / 100) * infants;
+    
+    return adultTotal + childTotal + infantTotal;
+  };
+
+  const handleValidateCoupon = async () => {
+    if (!formData.couponCode.trim()) return;
+    
+    setValidatingCoupon(true);
+    setCouponError(null);
+    try {
+      const totalAmount = calculateTotal();
+      const res = await validateCoupon(formData.couponCode, totalAmount);
+      if (res.success) {
+        setAppliedCoupon(res.data);
+      }
+    } catch (err) {
+      setAppliedCoupon(null);
+      setCouponError(err.response?.data?.message || 'Mã giảm giá không hợp lệ');
+    }
+    setValidatingCoupon(false);
   };
 
   const handleSubmit = async (e) => {
@@ -64,6 +122,7 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
         child_count: parseInt(formData.childCount),
         infant_count: parseInt(formData.infantCount),
         travel_date: formData.travelDate,
+        coupon_code: appliedCoupon ? appliedCoupon.coupon_code : '',
         note: formData.notes
       };
 
@@ -96,6 +155,9 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
   if (!isOpen) return null;
 
   const totalPeople = parseInt(formData.adultCount || 0) + parseInt(formData.childCount || 0) + parseInt(formData.infantCount || 0);
+  const baseTotal = calculateTotal();
+  const finalTotal = appliedCoupon ? appliedCoupon.final_total : baseTotal;
+  const formatPrice = (val) => val.toLocaleString('vi-VN') + 'đ';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -264,6 +326,35 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
             </div>
           </div>
 
+          {/* Coupon */}
+          <div className="mb-6">
+            <h4 className="font-bold mb-3">Mã giảm giá</h4>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                name="couponCode"
+                value={formData.couponCode}
+                onChange={handleChange}
+                placeholder="Nhập mã (nếu có)"
+                className="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={handleValidateCoupon}
+                disabled={validatingCoupon || !formData.couponCode}
+                className="px-4 py-2 bg-gray-100 border rounded hover:bg-gray-200 disabled:opacity-50 font-medium"
+              >
+                {validatingCoupon ? 'Đang ktra...' : 'Áp dụng'}
+              </button>
+            </div>
+            {couponError && <p className="text-red-500 text-sm mt-1">{couponError}</p>}
+            {appliedCoupon && (
+              <p className="text-green-600 text-sm mt-1 font-medium">
+                ✅ Đã áp dụng mã {appliedCoupon.coupon_code} (Giảm {formatPrice(appliedCoupon.discount_amount)})
+              </p>
+            )}
+          </div>
+
           {/* Summary */}
           <div className="bg-gray-50 p-4 rounded mb-4">
             <div className="flex justify-between mb-2">
@@ -276,9 +367,23 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
                 {tour.remaining_slots} chỗ
               </span>
             </div>
-            <div className="flex justify-between text-lg font-bold text-blue-600 pt-2 border-t">
-              <span>Giá tour:</span>
-              <span>{tour.price}</span>
+            
+            {appliedCoupon && (
+              <div className="flex justify-between mb-2 text-gray-600">
+                <span>Tổng ban đầu:</span>
+                <span className="line-through">{formatPrice(baseTotal)}</span>
+              </div>
+            )}
+            {appliedCoupon && (
+              <div className="flex justify-between mb-2 text-green-600 font-medium">
+                <span>Được giảm:</span>
+                <span>-{formatPrice(appliedCoupon.discount_amount)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between text-lg font-bold text-blue-600 pt-2 border-t mt-2">
+              <span>Tổng thanh toán:</span>
+              <span>{formatPrice(finalTotal)}</span>
             </div>
           </div>
 

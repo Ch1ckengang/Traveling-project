@@ -10,6 +10,7 @@ import (
 	"time"
 	"travel-backend/database"
 	"travel-backend/domain"
+	"travel-backend/internal/coupon"
 	"travel-backend/internal/shared"
 	tourmodule "travel-backend/internal/tour"
 	"unicode"
@@ -37,6 +38,20 @@ func CreateBooking(req domain.CreateBookingRequest) (*domain.Booking, error) {
 	}
 
 	totalAmount := calculateBookingTotal(tour.PriceAmount, normalizedReq.AdultCount, normalizedReq.ChildCount)
+	var discountAmount int64 = 0
+
+	// Handle coupon if provided
+	if normalizedReq.CouponCode != "" {
+		couponData, discount, err := coupon.ValidateCoupon(normalizedReq.CouponCode, totalAmount)
+		if err == nil && couponData != nil {
+			discountAmount = discount
+			totalAmount = totalAmount - discountAmount
+		} else {
+			// If coupon is invalid, return error instead of proceeding
+			return nil, fmt.Errorf("mã giảm giá không hợp lệ: %v", err)
+		}
+	}
+
 	bookingCode := generateBookingCode()
 
 	booking := &domain.Booking{
@@ -50,15 +65,25 @@ func CreateBooking(req domain.CreateBookingRequest) (*domain.Booking, error) {
 		InfantCount:   normalizedReq.InfantCount,
 		Quantity:      normalizedReq.Quantity,
 		TravelDate:    normalizedReq.TravelDate,
-		TotalAmount:   totalAmount,
-		BookingCode:   bookingCode,
-		PaymentStatus: "unpaid",
-		Note:          normalizedReq.Note,
-		Status:        "pending", // Changed from "pending_payment" to "pending"
+		TotalAmount:    totalAmount,
+		CouponCode:     normalizedReq.CouponCode,
+		DiscountAmount: discountAmount,
+		BookingCode:    bookingCode,
+		PaymentStatus:  "unpaid",
+		Note:           normalizedReq.Note,
+		Status:         "pending", // Changed from "pending_payment" to "pending"
 	}
 
 	if err := createBookingRecord(booking); err != nil {
 		return nil, shared.ErrCreateBookingFailed
+	}
+
+	// Increment coupon usage if applied
+	if booking.CouponCode != "" {
+		couponData, _ := coupon.FindCouponByCode(booking.CouponCode)
+		if couponData != nil {
+			coupon.IncrementUsedCount(couponData.ID)
+		}
 	}
 
 	if err := tourmodule.DecreaseTourRemainingSlots(normalizedReq.TourID, normalizedReq.Quantity); err != nil {

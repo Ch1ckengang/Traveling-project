@@ -114,14 +114,14 @@ PUT    /v1/api/admin/users/:id/role              (Admin only - handled in logic)
 
 ---
 
-## 🔄 PHASE 4: COUPON MODULE — ĐANG THỰC HIỆN
+## ✅ PHASE 4: COUPON MODULE — HOÀN THÀNH
 
-- [ ] `domain/coupon.go` + backend CRUD
-- [ ] Customer: validate coupon API
-- [ ] Admin CRUD + usage tracking
-- [ ] Frontend: CouponInput + AdminCouponsPage
+- [x] `domain/coupon.go` + backend CRUD
+- [x] Customer: validate coupon API
+- [x] Admin CRUD + usage tracking
+- [x] Frontend: CouponInput + AdminCouponsPage
 
-## ⬜ PHASE 5: ADMIN DASHBOARD & REPORT — CHƯA BẮT ĐẦU
+## 🔄 PHASE 5: ADMIN DASHBOARD & REPORT — ĐANG THỰC HIỆN
 
 - [ ] Dashboard summary/revenue/top-tours APIs
 - [ ] AdminDashboardPage + charts (Recharts)

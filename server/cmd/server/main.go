@@ -7,6 +7,7 @@ import (
 	"travel-backend/domain"
 	"travel-backend/internal/auth"
 	"travel-backend/internal/booking"
+	"travel-backend/internal/coupon"
 	"travel-backend/internal/payment"
 	"travel-backend/internal/review"
 	"travel-backend/internal/shared"
@@ -33,7 +34,7 @@ func main() {
 	shared.InitEmailService()
 
 	// Auto migrate: tự động tạo/cập nhật cấu trúc bảng
-	if err := database.DB.AutoMigrate(&domain.User{}, &domain.Tour{}, &domain.Booking{}, &domain.Payment{}, &domain.PaymentAuditLog{}, &domain.OTP{}, &domain.Review{}); err != nil {
+	if err := database.DB.AutoMigrate(&domain.User{}, &domain.Tour{}, &domain.Booking{}, &domain.Payment{}, &domain.PaymentAuditLog{}, &domain.OTP{}, &domain.Review{}, &domain.Coupon{}); err != nil {
 		log.Printf("⚠️ AutoMigrate error: %v", err)
 	} else {
 		log.Println("✅ AutoMigrate completed successfully")
@@ -112,6 +113,9 @@ func main() {
 			// Review routes (authenticated)
 			protected.POST("/reviews", review.CreateReviewHandler)
 			protected.PUT("/reviews/:id", review.UpdateReviewHandler)
+
+			// Coupon routes
+			protected.POST("/coupons/validate", coupon.ValidateCouponHandler)
 		}
 
 		// Payment routes (public - VNPay callbacks)
@@ -146,6 +150,12 @@ func main() {
 			admin.PUT("/reviews/:id/publish", review.AdminPublishReviewHandler)
 			admin.PUT("/reviews/:id/hide", review.AdminHideReviewHandler)
 			admin.POST("/reviews/:id/reply", review.AdminReplyReviewHandler)
+
+			// Admin Coupon Management
+			admin.GET("/coupons", coupon.AdminGetCouponsHandler)
+			admin.POST("/coupons", coupon.AdminCreateCouponHandler)
+			admin.PUT("/coupons/:id", coupon.AdminUpdateCouponHandler)
+			admin.DELETE("/coupons/:id", coupon.AdminDeleteCouponHandler)
 		}
 	}
 
