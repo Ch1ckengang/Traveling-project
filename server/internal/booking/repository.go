@@ -93,8 +93,8 @@ func cancelBookingByUserID(userID, bookingID uint) (*domain.Booking, error) {
 			remaining = 0
 		}
 
-		tour.RemainingSlots = remaining + booking.Quantity
-		if err := tx.Save(&tour).Error; err != nil {
+		newSlots := remaining + booking.Quantity
+		if err := tx.Model(&tour).Update("remaining_slots", newSlots).Error; err != nil {
 			return err
 		}
 

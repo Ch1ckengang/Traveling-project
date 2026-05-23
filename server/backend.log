@@ -1,0 +1,258 @@
+2026/05/14 16:26:55 ✅ Kết nối PostgreSQL thành công! (localhost:5433/travel_db)
+2026/05/14 16:26:55 📧 Email service DISABLED - running in dev mode
+2026/05/14 16:26:55 ✅ AutoMigrate completed successfully
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /uploads/*filepath        --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (4 handlers)
+[GIN-debug] HEAD   /uploads/*filepath        --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (4 handlers)
+⚠️ VNPay config validation failed: failed to load VNPay configuration from environment variables: configuration error: 'secret_key' appears invalid (too short: 15 characters). Verify your VNPay secret key. Using sandbox defaults.
+[GIN-debug] GET    /v1/api/tours             --> travel-backend/internal/tour.GetToursHandler (4 handlers)
+[GIN-debug] GET    /v1/api/tours/domestic    --> travel-backend/internal/tour.GetDomesticToursHandler (4 handlers)
+[GIN-debug] GET    /v1/api/tours/international --> travel-backend/internal/tour.GetInternationalToursHandler (4 handlers)
+[GIN-debug] GET    /v1/api/tours/search      --> travel-backend/internal/tour.SearchToursHandler (4 handlers)
+[GIN-debug] GET    /v1/api/tours/:id         --> travel-backend/internal/tour.GetTourByIDHandler (4 handlers)
+[GIN-debug] GET    /v1/api/tours/:id/schedules --> travel-backend/internal/tour.GetTourSchedules (4 handlers)
+[GIN-debug] GET    /v1/api/tours/:id/reviews --> travel-backend/internal/review.GetTourReviewsHandler (4 handlers)
+[GIN-debug] POST   /v1/api/login             --> travel-backend/internal/auth.LoginHandler (5 handlers)
+[GIN-debug] POST   /v1/api/register          --> travel-backend/internal/auth.RegisterHandler (5 handlers)
+[GIN-debug] POST   /v1/api/otp/send          --> travel-backend/internal/auth.SendOTPHandler (5 handlers)
+[GIN-debug] POST   /v1/api/otp/verify        --> travel-backend/internal/auth.VerifyOTPHandler (5 handlers)
+[GIN-debug] POST   /v1/api/password/forgot   --> travel-backend/internal/auth.ForgotPasswordHandler (5 handlers)
+[GIN-debug] POST   /v1/api/password/reset    --> travel-backend/internal/auth.ResetPasswordHandler (5 handlers)
+[GIN-debug] POST   /v1/api/token/refresh     --> travel-backend/internal/auth.RefreshTokenHandler (4 handlers)
+[GIN-debug] POST   /v1/api/bookings          --> travel-backend/internal/booking.CreateBookingHandler (5 handlers)
+[GIN-debug] GET    /v1/api/bookings/code/:code --> travel-backend/internal/booking.GetBookingByCodeHandler (5 handlers)
+[GIN-debug] GET    /v1/api/bookings/code/:code/invoice --> travel-backend/internal/booking.DownloadInvoiceHandler (5 handlers)
+[GIN-debug] GET    /v1/api/bookings/:id      --> travel-backend/internal/booking.GetBookingByIDHandler (5 handlers)
+[GIN-debug] GET    /v1/api/users/:id/bookings --> travel-backend/internal/booking.GetUserBookingsHandler (5 handlers)
+[GIN-debug] PUT    /v1/api/users/:id/bookings/:bookingId/cancel --> travel-backend/internal/booking.CancelBookingHandler (5 handlers)
+[GIN-debug] PUT    /v1/api/users/:id         --> travel-backend/internal/auth.UpdateUserHandler (5 handlers)
+[GIN-debug] POST   /v1/api/users/avatar      --> travel-backend/internal/auth.UploadAvatarHandler (5 handlers)
+[GIN-debug] GET    /v1/api/users/me          --> travel-backend/internal/auth.GetMeHandler (5 handlers)
+[GIN-debug] PUT    /v1/api/users/me/password --> travel-backend/internal/auth.ChangePasswordHandler (5 handlers)
+[GIN-debug] POST   /v1/api/logout            --> travel-backend/internal/auth.LogoutHandler (5 handlers)
+[GIN-debug] POST   /v1/api/payments/initiate --> travel-backend/internal/payment.(*PaymentHandler).InitiatePaymentHandler-fm (5 handlers)
+[GIN-debug] GET    /v1/api/payments/status/:ref --> travel-backend/internal/payment.(*PaymentHandler).GetPaymentStatusHandler-fm (5 handlers)
+[GIN-debug] GET    /v1/api/bookings/:id/payments --> travel-backend/internal/payment.(*PaymentHandler).GetBookingPaymentsHandler-fm (5 handlers)
+[GIN-debug] POST   /v1/api/reviews           --> travel-backend/internal/review.CreateReviewHandler (5 handlers)
+[GIN-debug] PUT    /v1/api/reviews/:id       --> travel-backend/internal/review.UpdateReviewHandler (5 handlers)
+[GIN-debug] POST   /v1/api/coupons/validate  --> travel-backend/internal/coupon.ValidateCouponHandler (5 handlers)
+[GIN-debug] GET    /v1/api/notifications     --> travel-backend/internal/notification.GetNotificationsHandler (5 handlers)
+[GIN-debug] PUT    /v1/api/notifications/:id/read --> travel-backend/internal/notification.MarkAsReadHandler (5 handlers)
+[GIN-debug] PUT    /v1/api/notifications/read-all --> travel-backend/internal/notification.MarkAllAsReadHandler (5 handlers)
+[GIN-debug] GET    /v1/api/payments/return   --> travel-backend/internal/payment.(*PaymentHandler).PaymentReturnHandler-fm (4 handlers)
+[GIN-debug] POST   /v1/api/payments/webhook  --> travel-backend/internal/payment.(*PaymentHandler).PaymentWebhookHandler-fm (4 handlers)
+[GIN-debug] GET    /v1/api/admin/tours       --> travel-backend/internal/tour.AdminGetToursHandler (6 handlers)
+[GIN-debug] POST   /v1/api/admin/tours       --> travel-backend/internal/tour.AdminCreateTourHandler (6 handlers)
+[GIN-debug] PUT    /v1/api/admin/tours/:id   --> travel-backend/internal/tour.AdminUpdateTourHandler (6 handlers)
+[GIN-debug] DELETE /v1/api/admin/tours/:id   --> travel-backend/internal/tour.AdminDeleteTourHandler (6 handlers)
+[GIN-debug] PUT    /v1/api/admin/tours/:id/toggle --> travel-backend/internal/tour.AdminToggleTourHandler (6 handlers)
+[GIN-debug] GET    /v1/api/admin/tours/:id/schedules --> travel-backend/internal/tour.AdminGetTourSchedules (6 handlers)
+[GIN-debug] POST   /v1/api/admin/tours/:id/schedules --> travel-backend/internal/tour.AdminCreateTourSchedule (6 handlers)
+[GIN-debug] DELETE /v1/api/admin/tours/:id/schedules/:scheduleId --> travel-backend/internal/tour.AdminDeleteTourSchedule (6 handlers)
+[GIN-debug] GET    /v1/api/admin/dashboard/summary --> travel-backend/internal/dashboard.AdminGetDashboardSummaryHandler (6 handlers)
+[GIN-debug] GET    /v1/api/admin/dashboard/revenue-chart --> travel-backend/internal/dashboard.AdminGetRevenueChartHandler (6 handlers)
+[GIN-debug] GET    /v1/api/admin/dashboard/top-tours --> travel-backend/internal/dashboard.AdminGetTopToursHandler (6 handlers)
+[GIN-debug] GET    /v1/api/admin/bookings    --> travel-backend/internal/booking.AdminGetBookingsHandler (6 handlers)
+[GIN-debug] GET    /v1/api/admin/bookings/stats --> travel-backend/internal/booking.AdminGetBookingStatsHandler (6 handlers)
+[GIN-debug] GET    /v1/api/admin/bookings/:code --> travel-backend/internal/booking.AdminGetBookingByCodeHandler (6 handlers)
+[GIN-debug] PUT    /v1/api/admin/bookings/:code/confirm --> travel-backend/internal/booking.AdminConfirmBookingHandler (6 handlers)
+[GIN-debug] PUT    /v1/api/admin/bookings/:code/cancel --> travel-backend/internal/booking.AdminCancelBookingHandler (6 handlers)
+[GIN-debug] GET    /v1/api/admin/users       --> travel-backend/internal/auth.AdminGetUsersHandler (6 handlers)
+[GIN-debug] PUT    /v1/api/admin/users/:id/status --> travel-backend/internal/auth.AdminUpdateUserStatusHandler (6 handlers)
+[GIN-debug] PUT    /v1/api/admin/users/:id/role --> travel-backend/internal/auth.AdminUpdateUserRoleHandler (6 handlers)
+[GIN-debug] GET    /v1/api/admin/reviews     --> travel-backend/internal/review.AdminGetReviewsHandler (6 handlers)
+[GIN-debug] PUT    /v1/api/admin/reviews/:id/publish --> travel-backend/internal/review.AdminPublishReviewHandler (6 handlers)
+[GIN-debug] PUT    /v1/api/admin/reviews/:id/hide --> travel-backend/internal/review.AdminHideReviewHandler (6 handlers)
+[GIN-debug] POST   /v1/api/admin/reviews/:id/reply --> travel-backend/internal/review.AdminReplyReviewHandler (6 handlers)
+[GIN-debug] GET    /v1/api/admin/coupons     --> travel-backend/internal/coupon.AdminGetCouponsHandler (6 handlers)
+[GIN-debug] POST   /v1/api/admin/coupons     --> travel-backend/internal/coupon.AdminCreateCouponHandler (6 handlers)
+[GIN-debug] PUT    /v1/api/admin/coupons/:id --> travel-backend/internal/coupon.AdminUpdateCouponHandler (6 handlers)
+[GIN-debug] DELETE /v1/api/admin/coupons/:id --> travel-backend/internal/coupon.AdminDeleteCouponHandler (6 handlers)
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://github.com/gin-gonic/gin/blob/master/docs/doc.md#dont-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on :8080
+[GIN] 2026/05/14 - 16:39:46 | 404 |    940ns |             ::1 | GET      "/api/v1/tours"
+[GIN] 2026/05/14 - 16:39:46 | 404 |  1.315µs |             ::1 | GET      "/favicon.ico"
+[GIN] 2026/05/14 - 16:40:17 | 200 |   1.48ms |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:40:17 | 200 | 968.307µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:40:17 | 200 |    774µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:40:17 | 200 |   1.32ms |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:40:43 | 200 | 924.569µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:40:43 | 200 | 614.773µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:41:03 | 204 | 29.478µs |             ::1 | OPTIONS  "/v1/api/login"
+
+2026/05/14 16:41:03 [31;1m/home/trung/Documents/Traveling/server/internal/auth/repository.go:19 [35;1mrecord not found
+[0m[33m[0.767ms] [34;1m[rows:0][0m SELECT * FROM "users" WHERE email = 'admin@traveling.com' ORDER BY "users"."id" LIMIT 1
+[GIN] 2026/05/14 - 16:41:03 | 401 | 925.997µs |             ::1 | POST     "/v1/api/login"
+
+2026/05/14 16:41:43 [31;1m/home/trung/Documents/Traveling/server/internal/auth/repository.go:19 [35;1mrecord not found
+[0m[33m[0.457ms] [34;1m[rows:0][0m SELECT * FROM "users" WHERE email = 'admin@traveling.com' ORDER BY "users"."id" LIMIT 1
+[GIN] 2026/05/14 - 16:41:43 | 401 | 599.93µs |             ::1 | POST     "/v1/api/login"
+2026/05/14 16:41:57 [TOKEN][ISSUE] uid=1 type=access jti=3fdd1073c607dba7f13466ede49e4b70 exp=2026-05-15T16:41:57+07:00
+2026/05/14 16:41:57 [TOKEN][ISSUE] uid=1 type=refresh jti=33627e40931edb430d2ce24af3d7e2fd exp=2026-06-13T16:41:57+07:00
+[GIN] 2026/05/14 - 16:41:57 | 200 |  78.38ms |             ::1 | POST     "/v1/api/login"
+[GIN] 2026/05/14 - 16:41:57 | 204 | 31.356µs |             ::1 | OPTIONS  "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:41:57 | 200 |   1.09ms |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:41:57 | 204 |  6.456µs |             ::1 | OPTIONS  "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:41:57 | 204 |  9.794µs |             ::1 | OPTIONS  "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:41:57 | 200 |   1.65ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:41:57 | 200 | 764.347µs |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:41:57 | 204 | 12.168µs |             ::1 | OPTIONS  "/v1/api/tours"
+[GIN] 2026/05/14 - 16:41:57 | 200 | 878.739µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:41:57 | 200 |   1.84ms |             ::1 | GET      "/v1/api/tours"
+
+2026/05/14 16:42:46 [31;1m/home/trung/Documents/Traveling/server/internal/auth/repository.go:19 [35;1mrecord not found
+[0m[33m[0.520ms] [34;1m[rows:0][0m SELECT * FROM "users" WHERE email = 'admin@traveling.com' ORDER BY "users"."id" LIMIT 1
+[GIN] 2026/05/14 - 16:42:46 | 401 | 680.725µs |             ::1 | POST     "/v1/api/login"
+
+2026/05/14 16:43:01 [31;1m/home/trung/Documents/Traveling/server/internal/auth/repository.go:19 [35;1mrecord not found
+[0m[33m[0.409ms] [34;1m[rows:0][0m SELECT * FROM "users" WHERE email = 'admin@example.com' ORDER BY "users"."id" LIMIT 1
+[GIN] 2026/05/14 - 16:43:01 | 401 | 535.569µs |             ::1 | POST     "/v1/api/login"
+[GIN] 2026/05/14 - 16:43:13 | 200 |   2.71ms |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:43:13 | 200 | 952.773µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:44:00 | 204 | 11.121µs |             ::1 | OPTIONS  "/v1/api/register"
+
+2026/05/14 16:44:00 [31;1m/home/trung/Documents/Traveling/server/internal/auth/repository.go:19 [35;1mrecord not found
+[0m[33m[0.422ms] [34;1m[rows:0][0m SELECT * FROM "users" WHERE email = 'admin@traveling.com' ORDER BY "users"."id" LIMIT 1
+2026/05/14 16:44:01 📧 [DEV MODE] Email to admin@traveling.com
+Subject: Mã xác thực OTP - Traveling
+Body: 
+		<html>
+		<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+			<div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+				<h2 style="color: #2563eb;">Xác thực tài khoản Traveling</h2>
+				<p>Xin chào,</p>
+				<p>Mã OTP của bạn là:</p>
+				<div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
+					<h1 style="color: #2563eb; font-size: 36px; margin: 0; letter-spacing: 5px;">422155</h1>
+				</div>
+				<p>Mã này sẽ hết hạn sau <strong>3 phút</strong>.</p>
+				<p>Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.</p>
+				<hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+				<p style="font-size: 12px; color: #666;">
+					Email này được gửi tự động từ hệ thống Traveling.<br>
+					Vui lòng không trả lời email này.
+				</p>
+			</div>
+		</body>
+		</html>
+	
+[GIN] 2026/05/14 - 16:44:01 | 200 |  73.65ms |             ::1 | POST     "/v1/api/register"
+2026/05/14 16:44:31 [TOKEN][ISSUE] uid=1 type=access jti=b888952da0bf64a4bdff766f4a31ca55 exp=2026-05-15T16:44:31+07:00
+2026/05/14 16:44:31 [TOKEN][ISSUE] uid=1 type=refresh jti=ac629ec10a043996a0b1c5eae76a383b exp=2026-06-13T16:44:31+07:00
+[GIN] 2026/05/14 - 16:44:31 | 200 |  79.86ms |             ::1 | POST     "/v1/api/login"
+[GIN] 2026/05/14 - 16:44:31 | 200 | 548.046µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:44:31 | 200 |   4.47ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:44:31 | 200 |   1.67ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:44:31 | 200 |   2.08ms |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:44:31 | 200 |      1ms |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:44:40 | 200 | 682.544µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:44:40 | 200 | 805.02µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:44:40 | 200 |   1.23ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:44:40 | 200 |   1.19ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:44:40 | 200 |  10.65ms |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:44:40 | 200 | 591.911µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:45:19 | 200 |   2.16ms |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:45:19 | 200 |   1.41ms |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:45:19 | 200 |   3.04ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:45:19 | 200 | 675.413µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:45:19 | 200 | 988.661µs |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:45:19 | 200 |   8.12ms |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:45:48 | 200 | 563.474µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:45:48 | 200 | 555.473µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:45:48 | 200 |   2.51ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:45:48 | 200 |   1.19ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:46:08 | 200 | 694.083µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:46:08 | 200 | 712.595µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:46:08 | 200 | 889.561µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:46:08 | 200 |   1.34ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:46:08 | 200 | 628.17µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:46:08 | 200 |   1.14ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:47:09 | 401 |  73.16ms |             ::1 | POST     "/v1/api/login"
+2026/05/14 16:48:25 [TOKEN][ISSUE] uid=1 type=access jti=3e2e4153c2d8b472adc55124baeb7a66 exp=2026-05-15T16:48:25+07:00
+2026/05/14 16:48:25 [TOKEN][ISSUE] uid=1 type=refresh jti=ab82fc2266d4d83efe0b7dfe2ff3c190 exp=2026-06-13T16:48:25+07:00
+[GIN] 2026/05/14 - 16:48:25 | 200 |   87.1ms |             ::1 | POST     "/v1/api/login"
+[GIN] 2026/05/14 - 16:48:25 | 200 | 729.853µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:48:25 | 200 |    1.3ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:48:25 | 200 |   1.22ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:48:25 | 200 |   5.06ms |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:48:25 | 200 |      1ms |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:48:43 | 200 | 747.971µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:48:43 | 200 | 528.801µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:48:43 | 204 | 13.294µs |             ::1 | OPTIONS  "/v1/api/tours/domestic"
+[GIN] 2026/05/14 - 16:48:43 | 204 | 13.319µs |             ::1 | OPTIONS  "/v1/api/tours/domestic"
+[GIN] 2026/05/14 - 16:48:43 | 200 |   1.42ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:48:43 | 200 |    2.4ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:48:43 | 200 |   3.66ms |             ::1 | GET      "/v1/api/tours/domestic"
+[GIN] 2026/05/14 - 16:48:43 | 200 |   1.99ms |             ::1 | GET      "/v1/api/tours/domestic"
+[GIN] 2026/05/14 - 16:49:38 | 200 | 892.577µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:49:38 | 200 | 890.899µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:49:38 | 200 | 920.982µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:49:38 | 200 | 996.572µs |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:49:38 | 200 | 871.471µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:49:38 | 200 |   1.66ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:50:31 | 200 | 766.27µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:50:31 | 200 | 631.455µs |             ::1 | GET      "/v1/api/users/me"
+[GIN] 2026/05/14 - 16:50:31 | 200 | 881.416µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:50:31 | 200 |   1.53ms |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:50:31 | 200 | 846.511µs |             ::1 | GET      "/v1/api/notifications?limit=10"
+[GIN] 2026/05/14 - 16:50:31 | 200 | 745.707µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:50:59 | 401 |  80.96ms |             ::1 | POST     "/v1/api/login"
+[GIN] 2026/05/14 - 16:51:18 | 401 |  70.81ms |             ::1 | POST     "/v1/api/login"
+[GIN] 2026/05/14 - 16:51:34 | 401 |  82.44ms |             ::1 | POST     "/v1/api/login"
+[GIN] 2026/05/14 - 16:52:08 | 409 | 724.978µs |             ::1 | POST     "/v1/api/register"
+[GIN] 2026/05/14 - 16:52:32 | 403 |   68.5ms |             ::1 | POST     "/v1/api/login"
+[GIN] 2026/05/14 - 16:53:18 | 403 |  67.66ms |             ::1 | POST     "/v1/api/login"
+[GIN] 2026/05/14 - 16:53:35 | 200 | 969.91µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 16:53:35 | 200 | 595.498µs |             ::1 | GET      "/v1/api/tours"
+
+2026/05/14 16:54:28 [31;1m/home/trung/Documents/Traveling/server/internal/auth/repository.go:19 [35;1mrecord not found
+[0m[33m[1.511ms] [34;1m[rows:0][0m SELECT * FROM "users" WHERE email = 'admin2@traveling.com' ORDER BY "users"."id" LIMIT 1
+2026/05/14 16:54:28 📧 [DEV MODE] Email to admin2@traveling.com
+Subject: Mã xác thực OTP - Traveling
+Body: 
+		<html>
+		<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+			<div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+				<h2 style="color: #2563eb;">Xác thực tài khoản Traveling</h2>
+				<p>Xin chào,</p>
+				<p>Mã OTP của bạn là:</p>
+				<div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
+					<h1 style="color: #2563eb; font-size: 36px; margin: 0; letter-spacing: 5px;">683859</h1>
+				</div>
+				<p>Mã này sẽ hết hạn sau <strong>3 phút</strong>.</p>
+				<p>Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.</p>
+				<hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+				<p style="font-size: 12px; color: #666;">
+					Email này được gửi tự động từ hệ thống Traveling.<br>
+					Vui lòng không trả lời email này.
+				</p>
+			</div>
+		</body>
+		</html>
+	
+[GIN] 2026/05/14 - 16:54:28 | 200 | 129.07ms |             ::1 | POST     "/v1/api/register"
+[GIN] 2026/05/14 - 16:54:49 | 204 | 10.897µs |             ::1 | OPTIONS  "/v1/api/otp/verify"
+[GIN] 2026/05/14 - 16:54:49 | 400 | 826.471µs |             ::1 | POST     "/v1/api/otp/verify"
+[GIN] 2026/05/14 - 16:55:33 | 400 | 559.217µs |             ::1 | POST     "/v1/api/otp/verify"
+[GIN] 2026/05/14 - 17:04:03 | 400 |   15.3ms |             ::1 | POST     "/v1/api/otp/verify"
+[GIN] 2026/05/14 - 17:04:10 | 200 | 789.032µs |             ::1 | GET      "/v1/api/tours"
+
+2026/05/14 17:12:36 [31;1m/home/trung/Documents/Traveling/server/internal/auth/otp_repository.go:19 [35;1mrecord not found
+[0m[33m[0.919ms] [34;1m[rows:0][0m SELECT * FROM "otps" WHERE email = 'admin2@traveling.com' ORDER BY created_at DESC,"otps"."id" LIMIT 1
+[GIN] 2026/05/14 - 17:12:36 | 400 |   1.18ms |             ::1 | POST     "/v1/api/otp/verify"
+[GIN] 2026/05/14 - 17:12:50 | 401 |  61.03ms |             ::1 | POST     "/v1/api/login"
+[GIN] 2026/05/14 - 21:59:28 | 403 | 21.303µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 21:59:28 | 403 |  4.284µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 21:59:31 | 403 | 10.867µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 21:59:31 | 403 |  5.192µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 21:59:32 | 403 |   5.94µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 21:59:32 | 403 |   2.86µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 21:59:33 | 403 |  19.33µs |             ::1 | GET      "/v1/api/tours"
+[GIN] 2026/05/14 - 21:59:33 | 403 |  2.781µs |             ::1 | GET      "/v1/api/tours"
+signal: killed

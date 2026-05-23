@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/v1/api/admin';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080/v1/api') + '/admin';
 
 const getAuthHeader = () => {
   const token = localStorage.getItem('accessToken');
@@ -40,6 +40,29 @@ export const adminDeleteTour = async (id) => {
 
 export const adminToggleTour = async (id) => {
   const response = await axios.put(`${API_BASE_URL}/tours/${id}/toggle`, {}, {
+    headers: getAuthHeader(),
+  });
+  return response.data;
+};
+
+// ===== SCHEDULE ADMIN =====
+
+export const adminGetTourSchedules = async (tourId) => {
+  const response = await axios.get(`${API_BASE_URL}/tours/${tourId}/schedules`, {
+    headers: getAuthHeader(),
+  });
+  return response.data;
+};
+
+export const adminCreateTourSchedule = async (tourId, scheduleData) => {
+  const response = await axios.post(`${API_BASE_URL}/tours/${tourId}/schedules`, scheduleData, {
+    headers: getAuthHeader(),
+  });
+  return response.data;
+};
+
+export const adminDeleteTourSchedule = async (tourId, scheduleId) => {
+  const response = await axios.delete(`${API_BASE_URL}/tours/${tourId}/schedules/${scheduleId}`, {
     headers: getAuthHeader(),
   });
   return response.data;

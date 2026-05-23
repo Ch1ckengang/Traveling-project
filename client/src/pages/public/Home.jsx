@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getTours } from '../../services/tourService';
+import axiosInstance from '../../utils/axiosInstance';
 
 const HomePage = () => {
   const [tours, setTours] = useState([]);
+  const [recommendedTours, setRecommendedTours] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -11,13 +13,30 @@ const HomePage = () => {
 
   useEffect(() => {
     fetchTours();
+    fetchRecommendations();
   }, []);
+
+  const fetchRecommendations = async () => {
+    try {
+      const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('auth_tokens');
+      if (!accessToken) return; // Chỉ lấy gợi ý nếu đã đăng nhập
+
+      const res = await axiosInstance.get('/ai/recommendations');
+      if (res.data && res.data.success && Array.isArray(res.data.data)) {
+        setRecommendedTours(res.data.data);
+      }
+    } catch (err) {
+      console.warn('Could not fetch AI recommendations:', err);
+    }
+  };
 
   const fetchTours = async () => {
     try {
       setLoading(true);
-      const data = await getTours();
-      setTours(data.slice(0, 6)); // Hiển thị 6 tours đầu tiên
+      const res = await getTours();
+      if (res.success && Array.isArray(res.data)) {
+        setTours(res.data.slice(0, 6)); // Hiển thị 6 tours đầu tiên
+      }
       setError(null);
     } catch (err) {
       console.error('Error fetching tours:', err);
@@ -120,6 +139,47 @@ const HomePage = () => {
 
         </div>
       </div>
+
+      {/* AI Recommendations Section */}
+      {recommendedTours.length > 0 && (
+        <div className="mb-8 mt-12 bg-blue-50 rounded-xl p-8 border border-blue-100">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="text-3xl">✨</span>
+            <h2 className="text-2xl font-bold text-blue-900">Được AI gợi ý riêng cho bạn</h2>
+          </div>
+          <p className="text-gray-600 mb-6">Dựa trên các tour bạn đã xem và tìm kiếm gần đây</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recommendedTours.map((tour) => (
+              <Link
+                key={tour.id}
+                to={`/tours/${tour.id}`}
+                className="bg-white border rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+              >
+                <div className="h-48 bg-gradient-to-br from-indigo-100 to-purple-50 flex items-center justify-center relative overflow-hidden">
+                  {tour.image_url ? (
+                    <img src={tour.image_url} alt={tour.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 text-indigo-400">
+                      <span className="text-3xl">🤖</span>
+                      <span className="text-sm font-medium">{tour.location}</span>
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-bold">
+                    Gợi ý
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-bold text-lg mb-2">{tour.name}</h3>
+                  <div className="flex justify-between items-center mt-4">
+                    <span className="text-blue-600 font-bold">{tour.price_amount ? tour.price_amount.toLocaleString() + 'đ' : 'Liên hệ'}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Categories */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">

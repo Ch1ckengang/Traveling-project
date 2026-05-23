@@ -213,7 +213,7 @@ const BookingsPage = () => {
 
                   {booking.status === 'pending' && (
                     <button
-                      onClick={() => navigate(`/payment/${booking.id}`)}
+                      onClick={() => navigate(`/account/bookings/${booking.id}`)}
                       className="flex-1 lg:flex-none px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                     >
                       Thanh toán

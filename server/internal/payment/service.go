@@ -4,26 +4,29 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"time"
 	"travel-backend/database"
 	"travel-backend/domain"
 	"travel-backend/internal/notification"
 	"travel-backend/internal/shared"
+
+	"gorm.io/gorm"
 )
 
 // PaymentService - Tầng xử lý business logic cho Payment
 type PaymentService struct {
-	repo       PaymentRepository
-	vnpayClient *VNPayClient
-	config     *VNPayConfig
+	repo    PaymentRepository
+	gateway PaymentGateway
+	config  *VNPayConfig
 }
 
 // NewPaymentService - Tạo payment service mới
 func NewPaymentService(config *VNPayConfig) *PaymentService {
 	return &PaymentService{
-		repo:        NewPaymentRepository(),
-		vnpayClient: NewVNPayClient(config),
-		config:      config,
+		repo:    NewPaymentRepository(),
+		gateway: NewVNPayClient(config),
+		config:  config,
 	}
 }
 
@@ -51,8 +54,16 @@ func (s *PaymentService) InitiatePayment(bookingID, userID uint, clientIP string
 	// 4. Tính toán số tiền
 	amount := booking.TotalAmount
 	if amount <= 0 {
-		// Fallback: tính từ tour price
+		// Fallback: tính từ tour price_amount
 		amount = booking.Tour.PriceAmount * int64(booking.Quantity)
+	}
+	if amount <= 0 && booking.Tour.Price != "" {
+		// Fallback: parse Price string (e.g. "5.000.000đ" → 5000000)
+		parsedPrice := domain.ParsePriceVND(booking.Tour.Price)
+		if parsedPrice > 0 {
+			amount = parsedPrice * int64(booking.Quantity)
+			log.Printf("[PAYMENT][WARN] booking_id=%d used Price string fallback: %s → %d", bookingID, booking.Tour.Price, parsedPrice)
+		}
 	}
 	if amount <= 0 {
 		return nil, fmt.Errorf("không thể xác định số tiền thanh toán")
@@ -75,7 +86,7 @@ func (s *PaymentService) InitiatePayment(bookingID, userID uint, clientIP string
 		ExpiresAt:            *payment.SessionExpiresAt,
 	}
 
-	paymentURL, err := s.vnpayClient.GeneratePaymentURL(vnpayReq)
+	paymentURL, err := s.gateway.GeneratePaymentURL(vnpayReq)
 	if err != nil {
 		return nil, fmt.Errorf("không thể tạo URL thanh toán: %w", err)
 	}
@@ -109,12 +120,9 @@ func (s *PaymentService) ProcessReturn(params map[string]string, secureHash stri
 	txnRef := params["vnp_TxnRef"]
 
 	// 1. Validate signature
-	if !s.vnpayClient.ValidateSignature(params, secureHash) {
+	if !s.gateway.ValidateSignature(params, secureHash) {
 		log.Printf("[PAYMENT][RETURN] INVALID SIGNATURE for ref=%s", txnRef)
-		return &domain.PaymentStatusResponse{
-			Success: false,
-			Message: "Chữ ký không hợp lệ",
-		}, nil
+		return nil, fmt.Errorf("chữ ký không hợp lệ")
 	}
 
 	// 2. Lấy payment
@@ -126,16 +134,11 @@ func (s *PaymentService) ProcessReturn(params map[string]string, secureHash stri
 		}, nil
 	}
 
-	// 3. Xử lý kết quả
+	// ReturnURL is browser-facing. Do not mutate payment state here; VNPay IPN
+	// is the authoritative server-to-server update path.
 	responseCode := params["vnp_ResponseCode"]
-	transactionNo := params["vnp_TransactionNo"]
-	isSuccess, message := s.vnpayClient.ParseVNPayResponseCode(responseCode)
-
-	if isSuccess {
-		s.handlePaymentSuccess(payment, responseCode, transactionNo, message)
-	} else {
-		s.handlePaymentFailure(payment, responseCode, message)
-	}
+	isSuccess, message := s.gateway.ParseResponseCode(responseCode)
+	isSuccess = isSuccess && params["vnp_TransactionStatus"] == "00"
 
 	return &domain.PaymentStatusResponse{
 		Success: isSuccess,
@@ -149,43 +152,79 @@ func (s *PaymentService) ProcessWebhook(params map[string]string, secureHash str
 	txnRef := params["vnp_TxnRef"]
 
 	// 1. Validate signature
-	if !s.vnpayClient.ValidateSignature(params, secureHash) {
+	if !s.gateway.ValidateSignature(params, secureHash) {
 		log.Printf("[PAYMENT][WEBHOOK] INVALID SIGNATURE for ref=%s", txnRef)
 		return "97", "Invalid Signature"
 	}
 
-	// 2. Lấy payment
-	payment, err := s.repo.GetPaymentByTransactionReference(txnRef)
-	if err != nil || payment == nil {
-		log.Printf("[PAYMENT][WEBHOOK] Payment not found for ref=%s", txnRef)
-		return "01", "Order Not Found"
-	}
-
-	// 3. Kiểm tra đã xử lý chưa
-	if payment.Status == domain.PaymentStatusPaid || payment.Status == domain.PaymentStatusRefunded {
-		return "02", "Order Already Confirmed"
-	}
-
-	// 4. Xử lý kết quả
-	responseCode := params["vnp_ResponseCode"]
-	transactionNo := params["vnp_TransactionNo"]
-	isSuccess, message := s.vnpayClient.ParseVNPayResponseCode(responseCode)
-
-	// Ghi audit log webhook
 	webhookData := make(map[string]interface{})
 	for k, v := range params {
 		webhookData[k] = v
 	}
-	auditLog := domain.NewWebhookReceivedLog(&payment.ID, &payment.BookingID, webhookData)
-	s.repo.CreateAuditLog(auditLog)
 
-	if isSuccess {
-		s.handlePaymentSuccess(payment, responseCode, transactionNo, message)
-		return "00", "Confirm Success"
+	var updatedPayment *domain.Payment
+	var completed bool
+	rspCode := "00"
+	rspMessage := "Confirm Success"
+
+	err := s.repo.WithTransaction(func(tx *gorm.DB) error {
+		payment, err := s.repo.GetPaymentWithLock(tx, txnRef)
+		if err != nil {
+			log.Printf("[PAYMENT][WEBHOOK] Payment not found for ref=%s: %v", txnRef, err)
+			rspCode = "01"
+			rspMessage = "Order Not Found"
+			return nil
+		}
+
+		auditLog := domain.NewWebhookReceivedLog(&payment.ID, &payment.BookingID, webhookData)
+		if err := tx.Create(auditLog).Error; err != nil {
+			return fmt.Errorf("failed to create webhook audit log: %w", err)
+		}
+
+		if payment.Status == domain.PaymentStatusPaid || payment.Status == domain.PaymentStatusRefunded {
+			rspCode = "02"
+			rspMessage = "Order Already Confirmed"
+			updatedPayment = payment
+			return nil
+		}
+
+		if !s.isValidWebhookAmount(payment, params["vnp_Amount"]) {
+			log.Printf("[PAYMENT][WEBHOOK] Amount mismatch ref=%s expected=%d got=%s", txnRef, payment.Amount, params["vnp_Amount"])
+			rspCode = "04"
+			rspMessage = "Invalid Amount"
+			return nil
+		}
+
+		responseCode := params["vnp_ResponseCode"]
+		transactionStatus := params["vnp_TransactionStatus"]
+		transactionNo := params["vnp_TransactionNo"]
+		isSuccess, message := s.gateway.ParseResponseCode(responseCode)
+		isSuccess = isSuccess && transactionStatus == "00"
+
+		if isSuccess {
+			if err := s.handlePaymentSuccessTx(tx, payment, responseCode, transactionNo, message); err != nil {
+				return err
+			}
+			completed = true
+		} else {
+			if err := s.handlePaymentFailureTx(tx, payment, responseCode, message); err != nil {
+				return err
+			}
+		}
+		updatedPayment = payment
+		return nil
+	})
+	if err != nil {
+		log.Printf("[PAYMENT][WEBHOOK] Failed to process ref=%s: %v", txnRef, err)
+		return "99", "Unknown Error"
 	}
 
-	s.handlePaymentFailure(payment, responseCode, message)
-	return "00", "Confirm Success"
+	if completed && updatedPayment != nil {
+		s.sendPaymentConfirmationEmail(updatedPayment)
+		s.sendPaymentSuccessNotification(updatedPayment)
+	}
+
+	return rspCode, rspMessage
 }
 
 // GetPaymentStatus - Kiểm tra trạng thái thanh toán
@@ -235,70 +274,84 @@ func (s *PaymentService) GetPaymentsByBooking(bookingID, userID uint) ([]domain.
 }
 
 // handlePaymentSuccess - Xử lý khi thanh toán thành công
-func (s *PaymentService) handlePaymentSuccess(payment *domain.Payment, responseCode, transactionNo, message string) {
+func (s *PaymentService) handlePaymentSuccessTx(tx *gorm.DB, payment *domain.Payment, responseCode, transactionNo, message string) error {
 	previousStatus := payment.Status
 
 	payment.SetVNPayResponse(transactionNo, responseCode, message)
 	payment.Status = domain.PaymentStatusPaid
 	payment.UpdatedAt = time.Now()
-	method := "vnpay"
+	method := s.gateway.ProviderName()
 	payment.PaymentMethod = &method
 
-	if err := s.repo.UpdatePayment(payment); err != nil {
-		log.Printf("[PAYMENT][ERROR] Failed to update payment %d: %v", payment.ID, err)
-		return
+	if err := s.repo.UpdatePaymentWithTransaction(tx, payment); err != nil {
+		return fmt.Errorf("failed to update payment %d: %w", payment.ID, err)
 	}
 
 	// Cập nhật booking status
-	database.DB.Model(&domain.Booking{}).Where("id = ?", payment.BookingID).Updates(map[string]interface{}{
+	if err := tx.Model(&domain.Booking{}).Where("id = ?", payment.BookingID).Updates(map[string]interface{}{
 		"payment_status": "paid",
 		"status":         "confirmed",
-	})
+	}).Error; err != nil {
+		return fmt.Errorf("failed to update booking payment status: %w", err)
+	}
 
 	// Audit log
 	auditLog := domain.NewPaymentCompletedLog(payment, responseCode, message)
-	s.repo.CreateAuditLog(auditLog)
-
-	// Gửi email xác nhận
-	s.sendPaymentConfirmationEmail(payment)
-
-	// Gửi thông báo trong app
-	go func(bookingID uint) {
-		var b domain.Booking
-		if err := database.DB.Preload("Tour").First(&b, bookingID).Error; err == nil {
-			msg := fmt.Sprintf("Thanh toán thành công cho tour %s. Số tiền: %s.", b.Tour.Name, domain.FormatPriceVND(payment.Amount))
-			_ = notification.SendNotification(b.UserID, "Thanh toán thành công", msg, domain.NotifTypePayment)
-		}
-	}(payment.BookingID)
+	if err := tx.Create(auditLog).Error; err != nil {
+		return fmt.Errorf("failed to create completed audit log: %w", err)
+	}
 
 	log.Printf("[PAYMENT][SUCCESS] payment_id=%d ref=%s prev_status=%s new_status=paid",
 		payment.ID, payment.TransactionReference, previousStatus)
+	return nil
 }
 
 // handlePaymentFailure - Xử lý khi thanh toán thất bại
-func (s *PaymentService) handlePaymentFailure(payment *domain.Payment, responseCode, message string) {
+func (s *PaymentService) handlePaymentFailureTx(tx *gorm.DB, payment *domain.Payment, responseCode, message string) error {
 	previousStatus := payment.Status
 
 	payment.SetVNPayResponse("", responseCode, message)
 	payment.Status = domain.PaymentStatusFailed
 	payment.UpdatedAt = time.Now()
 
-	if err := s.repo.UpdatePayment(payment); err != nil {
-		log.Printf("[PAYMENT][ERROR] Failed to update payment %d: %v", payment.ID, err)
-		return
+	if err := s.repo.UpdatePaymentWithTransaction(tx, payment); err != nil {
+		return fmt.Errorf("failed to update payment %d: %w", payment.ID, err)
 	}
 
 	// Cập nhật booking
-	database.DB.Model(&domain.Booking{}).Where("id = ?", payment.BookingID).Updates(map[string]interface{}{
+	if err := tx.Model(&domain.Booking{}).Where("id = ?", payment.BookingID).Updates(map[string]interface{}{
 		"payment_status": "failed",
-	})
+	}).Error; err != nil {
+		return fmt.Errorf("failed to update booking payment status: %w", err)
+	}
 
 	// Audit log
 	auditLog := domain.NewPaymentFailedLog(payment, message, responseCode)
-	s.repo.CreateAuditLog(auditLog)
+	if err := tx.Create(auditLog).Error; err != nil {
+		return fmt.Errorf("failed to create failed audit log: %w", err)
+	}
 
 	log.Printf("[PAYMENT][FAILED] payment_id=%d ref=%s code=%s prev=%s",
 		payment.ID, payment.TransactionReference, responseCode, previousStatus)
+	return nil
+}
+
+func (s *PaymentService) isValidWebhookAmount(payment *domain.Payment, rawAmount string) bool {
+	vnpayAmount, err := strconv.ParseInt(rawAmount, 10, 64)
+	if err != nil {
+		return false
+	}
+	return vnpayAmount == payment.Amount*100
+}
+
+func (s *PaymentService) sendPaymentSuccessNotification(payment *domain.Payment) {
+	go func(bookingID uint, amount int64) {
+		var b domain.Booking
+		if err := database.DB.Preload("Tour").First(&b, bookingID).Error; err == nil {
+			msg := fmt.Sprintf("Thanh toán thành công cho tour %s. Số tiền: %s.", b.Tour.Name, domain.FormatPriceVND(amount))
+			_ = notification.SendNotification(b.UserID, "Thanh toán thành công", msg, domain.NotifTypePayment)
+		}
+	}(payment.BookingID, payment.Amount)
 }
 
 // sendPaymentConfirmationEmail - Gửi email xác nhận thanh toán

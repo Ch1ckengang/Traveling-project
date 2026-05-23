@@ -17,6 +17,7 @@ type CreateBookingRequest struct {
 	InfantCount int    `json:"infant_count"`
 	Quantity    int    `json:"quantity"`
 	TravelDate  string `json:"travel_date" binding:"required"`
+	ScheduleID  *uint  `json:"schedule_id,omitempty"`
 	CouponCode  string `json:"coupon_code,omitempty"`
 	Note        string `json:"note,omitempty"`
 }
@@ -49,6 +50,7 @@ type BookingWithPayment struct {
 	InfantCount     int        `json:"infant_count"`
 	Quantity        int        `json:"quantity"`
 	TravelDate      string     `json:"travel_date"`
+	ScheduleID      *uint      `json:"schedule_id,omitempty"`
 	TotalAmount     int64      `json:"total_amount"`
 	CouponCode      string     `json:"coupon_code"`
 	DiscountAmount  int64      `json:"discount_amount"`
@@ -123,6 +125,7 @@ func (b *Booking) ToBookingWithPayment() *BookingWithPayment {
 		InfantCount:     b.InfantCount,
 		Quantity:        b.Quantity,
 		TravelDate:      b.TravelDate,
+		ScheduleID:      b.ScheduleID,
 		TotalAmount:     b.TotalAmount,
 		CouponCode:      b.CouponCode,
 		DiscountAmount:  b.DiscountAmount,

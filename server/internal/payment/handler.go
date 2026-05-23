@@ -3,6 +3,7 @@ package payment
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"travel-backend/domain"
 	"travel-backend/internal/auth"
 	"travel-backend/internal/shared"
@@ -60,35 +61,28 @@ func (h *PaymentHandler) InitiatePaymentHandler(c *gin.Context) {
 // VNPay redirect user về đây sau khi thanh toán
 func (h *PaymentHandler) PaymentReturnHandler(c *gin.Context) {
 	// Collect all vnp_ params from query string
-	params := make(map[string]string)
-	for key, values := range c.Request.URL.Query() {
-		if len(values) > 0 {
-			params[key] = values[0]
-		}
-	}
+	params := collectPaymentParams(c)
 
 	secureHash := params["vnp_SecureHash"]
 	delete(params, "vnp_SecureHash")
 	delete(params, "vnp_SecureHashType")
+	txnRef := params["vnp_TxnRef"]
 
 	result, err := h.service.ProcessReturn(params, secureHash)
 	if err != nil {
 		// Redirect to frontend with error
-		frontendURL := h.service.config.ReturnURL
-		c.Redirect(http.StatusFound, frontendURL+"?status=error&message="+err.Error())
+		redirectURL := buildPaymentResultURL(h.service.config.FrontendURL, "error", txnRef, err.Error())
+		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
 
 	// Redirect to frontend with result
-	txnRef := params["vnp_TxnRef"]
 	status := "failed"
 	if result.Success {
 		status = "success"
 	}
 
-	// Redirect về frontend payment result page
-	frontendBase := "http://localhost:5173"
-	redirectURL := frontendBase + "/payment/result?status=" + status + "&ref=" + txnRef + "&message=" + result.Message
+	redirectURL := buildPaymentResultURL(h.service.config.FrontendURL, status, txnRef, result.Message)
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
@@ -96,12 +90,7 @@ func (h *PaymentHandler) PaymentReturnHandler(c *gin.Context) {
 // VNPay gọi endpoint này (IPN) để thông báo kết quả thanh toán
 func (h *PaymentHandler) PaymentWebhookHandler(c *gin.Context) {
 	// Collect all vnp_ params
-	params := make(map[string]string)
-	for key, values := range c.Request.URL.Query() {
-		if len(values) > 0 {
-			params[key] = values[0]
-		}
-	}
+	params := collectPaymentParams(c)
 
 	secureHash := params["vnp_SecureHash"]
 	delete(params, "vnp_SecureHash")
@@ -114,6 +103,38 @@ func (h *PaymentHandler) PaymentWebhookHandler(c *gin.Context) {
 		"RspCode": rspCode,
 		"Message": message,
 	})
+}
+
+func collectPaymentParams(c *gin.Context) map[string]string {
+	params := make(map[string]string)
+	addValues := func(values url.Values) {
+		for key, vals := range values {
+			if len(vals) > 0 {
+				params[key] = vals[0]
+			}
+		}
+	}
+
+	addValues(c.Request.URL.Query())
+	if err := c.Request.ParseForm(); err == nil {
+		addValues(c.Request.PostForm)
+	}
+
+	return params
+}
+
+func buildPaymentResultURL(frontendBase, status, ref, message string) string {
+	resultURL, err := url.Parse(frontendBase)
+	if err != nil {
+		resultURL = &url.URL{Scheme: "http", Host: "localhost:5173"}
+	}
+	resultURL.Path = "/payment/result"
+	query := resultURL.Query()
+	query.Set("status", status)
+	query.Set("ref", ref)
+	query.Set("message", message)
+	resultURL.RawQuery = query.Encode()
+	return resultURL.String()
 }
 
 // GetPaymentStatusHandler - GET /v1/api/payments/status/:ref

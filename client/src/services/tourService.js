@@ -25,3 +25,8 @@ export const searchTours = async (keyword) => {
   return response.data;
 };
 
+export const getTourSchedules = async (tourId) => {
+  const response = await axiosInstance.get(`/tours/${tourId}/schedules`);
+  return response.data;
+};
+

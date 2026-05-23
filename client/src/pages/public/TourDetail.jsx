@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axiosInstance from '../../utils/axiosInstance';
 import BookingModal from '../../components/booking/BookingModal';
 import ReviewList from '../../components/review/ReviewList';
+import { logActivity } from '../../services/trackingService';
 
 const TourDetailPage = () => {
   const { tourId } = useParams();
@@ -11,6 +12,7 @@ const TourDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
+  const [activeImage, setActiveImage] = useState(null);
 
   useEffect(() => {
     fetchTourDetail();
@@ -20,12 +22,19 @@ const TourDetailPage = () => {
     try {
       setLoading(true);
       const response = await axiosInstance.get(`/tours/${tourId}`);
-      // API trả về { success: true, data: tour } hoặc tour trực tiếp
-      const tourData = response.data?.data || response.data;
+      // API trả về { success: true, data: { tour: {...} } } hoặc { success: true, data: {...} } hoặc tour trực tiếp
+      const responseData = response.data?.data || response.data;
+      const tourData = responseData.tour || responseData;
       
       if (tourData && tourData.id) {
         setTour(tourData);
+        setActiveImage(tourData.image_url);
         setError(null);
+        
+        // Log view_tour activity sau 3 giây (đảm bảo người dùng thực sự xem)
+        setTimeout(() => {
+          logActivity('view_tour', { tour_id: tourData.id });
+        }, 3000);
       } else {
         setError('Không tìm thấy tour');
       }
@@ -105,12 +114,39 @@ const TourDetailPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content */}
         <div className="lg:col-span-2">
-          {/* Image */}
-          <div className="h-96 bg-gray-200 rounded-lg mb-6 flex items-center justify-center overflow-hidden">
-            {tour.image_url ? (
-              <img src={tour.image_url} alt={tour.name} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-gray-400 text-2xl">📷 {tour.location}</span>
+          {/* Image Gallery */}
+          <div className="mb-6">
+            <div className="h-96 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden mb-2">
+              {activeImage ? (
+                <img src={activeImage} alt={tour.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-gray-400 text-2xl">📷 {tour.location}</span>
+              )}
+            </div>
+            
+            {/* Thumbnail list */}
+            {tour.images && tour.images.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto py-2">
+                {/* Main image as first thumbnail */}
+                {tour.image_url && (
+                  <div 
+                    className={`w-20 h-16 flex-shrink-0 rounded cursor-pointer overflow-hidden border-2 ${activeImage === tour.image_url ? 'border-blue-500' : 'border-transparent'}`}
+                    onClick={() => setActiveImage(tour.image_url)}
+                  >
+                    <img src={tour.image_url} alt="Main" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                {/* Additional images */}
+                {tour.images.map((img) => (
+                  <div 
+                    key={img.id}
+                    className={`w-20 h-16 flex-shrink-0 rounded cursor-pointer overflow-hidden border-2 ${activeImage === img.image_url ? 'border-blue-500' : 'border-transparent'}`}
+                    onClick={() => setActiveImage(img.image_url)}
+                  >
+                    <img src={img.image_url} alt="Gallery" className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 

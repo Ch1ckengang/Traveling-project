@@ -18,6 +18,7 @@ type VNPayConfig struct {
 	SecretKey      string `json:"secret_key"`      // Secret key for signature generation
 	ReturnURL      string `json:"return_url"`      // User-facing URL for payment return
 	IPNURL         string `json:"ipn_url"`         // Server-to-server webhook URL
+	FrontendURL    string `json:"frontend_url"`    // Frontend base URL for result redirects
 	PaymentTimeout int    `json:"payment_timeout"` // Payment session timeout in minutes
 }
 
@@ -45,6 +46,10 @@ func (c *VNPayConfig) Validate() error {
 		return errors.New("configuration error: 'ipn_url' is required. Set VNPAY_IPN_URL to the server-to-server webhook URL for payment notifications (e.g., https://yourdomain.com/api/v1/payments/webhook)")
 	}
 
+	if c.FrontendURL == "" {
+		return errors.New("configuration error: 'frontend_url' is required. Set FRONTEND_BASE_URL to your frontend app base URL")
+	}
+
 	// Validate environment value
 	env := strings.ToLower(c.Environment)
 	if env != "sandbox" && env != "production" {
@@ -57,6 +62,10 @@ func (c *VNPayConfig) Validate() error {
 	}
 
 	if err := validateURL(c.IPNURL, "ipn_url"); err != nil {
+		return fmt.Errorf("configuration error: %w", err)
+	}
+
+	if err := validateURL(c.FrontendURL, "frontend_url"); err != nil {
 		return fmt.Errorf("configuration error: %w", err)
 	}
 
@@ -83,6 +92,9 @@ func (c *VNPayConfig) Validate() error {
 		}
 		if !strings.HasPrefix(c.IPNURL, "https://") {
 			return errors.New("security error: 'ipn_url' must use HTTPS in production environment for secure webhook communication")
+		}
+		if !strings.HasPrefix(c.FrontendURL, "https://") {
+			return errors.New("security error: 'frontend_url' must use HTTPS in production environment")
 		}
 	}
 
@@ -161,6 +173,7 @@ func (c *VNPayConfig) MaskSecretKey() string {
 //   - VNPAY_SECRET_KEY: Secret key for signature generation (required)
 //   - VNPAY_RETURN_URL: User-facing URL for payment return (required)
 //   - VNPAY_IPN_URL: Server-to-server webhook URL (required)
+//   - FRONTEND_BASE_URL: Frontend base URL for redirecting users after return verification
 //   - VNPAY_PAYMENT_TIMEOUT: Payment session timeout in minutes (default: 15)
 func LoadConfigFromEnv() (*VNPayConfig, error) {
 	config := &VNPayConfig{
@@ -169,6 +182,7 @@ func LoadConfigFromEnv() (*VNPayConfig, error) {
 		SecretKey:      strings.TrimSpace(os.Getenv("VNPAY_SECRET_KEY")),
 		ReturnURL:      strings.TrimSpace(os.Getenv("VNPAY_RETURN_URL")),
 		IPNURL:         strings.TrimSpace(os.Getenv("VNPAY_IPN_URL")),
+		FrontendURL:    getEnvOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),
 		PaymentTimeout: getEnvAsInt("VNPAY_PAYMENT_TIMEOUT", 15),
 	}
 
@@ -192,6 +206,7 @@ func LoadVNPayConfig() *VNPayConfig {
 			SecretKey:      getEnvOrDefault("VNPAY_SECRET_KEY", "DEMO_SECRET_KEY"),
 			ReturnURL:      getEnvOrDefault("VNPAY_RETURN_URL", "http://localhost:8080/v1/api/payments/return"),
 			IPNURL:         getEnvOrDefault("VNPAY_IPN_URL", "http://localhost:8080/v1/api/payments/webhook"),
+			FrontendURL:    getEnvOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),
 			PaymentTimeout: 15,
 		}
 		fmt.Printf("⚠️ VNPay config validation failed: %v. Using sandbox defaults.\n", err)
@@ -231,13 +246,13 @@ func getEnvAsInt(key string, fallback int) int {
 func (c *VNPayConfig) PrettyPrint() (string, error) {
 	// Create a copy of the config with masked sensitive data
 	masked := c.MaskedCopy()
-	
+
 	// Marshal with indentation for pretty printing
 	data, err := json.MarshalIndent(masked, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to format configuration: %w", err)
 	}
-	
+
 	return string(data), nil
 }
 
@@ -247,13 +262,13 @@ func (c *VNPayConfig) PrettyPrint() (string, error) {
 func (c *VNPayConfig) CompactPrint() (string, error) {
 	// Create a copy of the config with masked sensitive data
 	masked := c.MaskedCopy()
-	
+
 	// Marshal without indentation for compact output
 	data, err := json.Marshal(masked)
 	if err != nil {
 		return "", fmt.Errorf("failed to format configuration: %w", err)
 	}
-	
+
 	return string(data), nil
 }
 
@@ -266,6 +281,7 @@ func (c *VNPayConfig) MaskedCopy() VNPayConfig {
 		SecretKey:      c.MaskSecretKey(),
 		ReturnURL:      c.ReturnURL,
 		IPNURL:         c.IPNURL,
+		FrontendURL:    c.FrontendURL,
 		PaymentTimeout: c.PaymentTimeout,
 	}
 }

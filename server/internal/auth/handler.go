@@ -5,55 +5,16 @@ import (
 	"net/http"
 	"travel-backend/domain"
 	"travel-backend/internal/shared"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
 
-type apiError struct {
-	Code    string      `json:"code"`
-	Details interface{} `json:"details,omitempty"`
-}
-
-type apiResponse struct {
-	Success bool                   `json:"success"`
-	Message string                 `json:"message,omitempty"`
-	Data    interface{}            `json:"data"`
-	Meta    map[string]interface{} `json:"meta,omitempty"`
-	Error   *apiError              `json:"error"`
-}
-
-func respondSuccess(c *gin.Context, status int, message string, data interface{}) {
-	c.JSON(status, apiResponse{
-		Success: true,
-		Message: message,
-		Data:    data,
-		Meta:    buildMeta(c),
-		Error:   nil,
-	})
-}
-
-func respondError(c *gin.Context, status int, message, code string) {
-	c.JSON(status, apiResponse{
-		Success: false,
-		Message: message,
-		Data:    nil,
-		Meta:    buildMeta(c),
-		Error: &apiError{
-			Code: code,
-		},
-	})
-}
-
-func buildMeta(c *gin.Context) map[string]interface{} {
-	requestID := c.GetHeader("X-Request-ID")
-	if requestID == "" {
-		return nil
-	}
-
-	return map[string]interface{}{
-		"request_id": requestID,
-	}
-}
+// Note: Using shared.RespondSuccess and shared.RespondError for consistent API responses
 
 // UserController - Tầng xử lý HTTP cho User
 // Giống như "người phục vụ" — nhận request từ client, gọi service, trả response
@@ -66,7 +27,7 @@ func LoginHandler(c *gin.Context) {
 
 	// Bước 1: Đọc và validate dữ liệu từ request body
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
+		shared.RespondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
 		return
 	}
 
@@ -74,18 +35,18 @@ func LoginHandler(c *gin.Context) {
 	user, err := Login(req.Email, req.Password)
 	if err != nil {
 		status, code := authErrorInfo(err)
-		respondError(c, status, err.Error(), code)
+		shared.RespondError(c, status, err.Error(), code)
 		return
 	}
 
 	tokens, err := issueTokenPair(user)
 	if err != nil {
-		respondError(c, http.StatusInternalServerError, shared.ErrTokenIssueFailed.Error(), "AUTH_TOKEN_ISSUE_FAILED")
+		shared.RespondError(c, http.StatusInternalServerError, shared.ErrTokenIssueFailed.Error(), "AUTH_TOKEN_ISSUE_FAILED")
 		return
 	}
 
 	// Bước 3: Trả kết quả cho client
-	respondSuccess(c, http.StatusOK, "Đăng nhập thành công", gin.H{"user": user, "tokens": tokens})
+	shared.RespondSuccess(c, http.StatusOK, "Đăng nhập thành công", gin.H{"user": user, "tokens": tokens})
 }
 
 // RefreshTokenHandler - Xử lý POST /api/token/refresh
@@ -93,18 +54,18 @@ func RefreshTokenHandler(c *gin.Context) {
 	var req domain.RefreshTokenRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
+		shared.RespondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
 		return
 	}
 
 	tokens, err := refreshTokenPair(req.RefreshToken)
 	if err != nil {
 		status, code := authErrorInfo(err)
-		respondError(c, status, err.Error(), code)
+		shared.RespondError(c, status, err.Error(), code)
 		return
 	}
 
-	respondSuccess(c, http.StatusOK, "Làm mới token thành công", gin.H{"tokens": tokens})
+	shared.RespondSuccess(c, http.StatusOK, "Làm mới token thành công", gin.H{"tokens": tokens})
 }
 
 // RegisterHandler - Xử lý POST /api/register
@@ -113,7 +74,7 @@ func RegisterHandler(c *gin.Context) {
 
 	// Bước 1: Đọc và validate dữ liệu từ request body
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
+		shared.RespondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
 		return
 	}
 
@@ -121,12 +82,12 @@ func RegisterHandler(c *gin.Context) {
 	newUser, err := Register(req.Name, req.Email, req.Phone, req.Password)
 	if err != nil {
 		status, code := authErrorInfo(err)
-		respondError(c, status, err.Error(), code)
+		shared.RespondError(c, status, err.Error(), code)
 		return
 	}
 
 	// Bước 3: Trả kết quả cho client
-	respondSuccess(c, http.StatusOK, "Đăng ký thành công. Vui lòng kiểm tra email đăng ký để lấy mã OTP xác thực.", gin.H{"user": newUser})
+	shared.RespondSuccess(c, http.StatusOK, "Đăng ký thành công. Vui lòng kiểm tra email đăng ký để lấy mã OTP xác thực.", gin.H{"user": newUser})
 }
 
 // SendOTPHandler - Xử lý POST /api/otp/send
@@ -134,17 +95,17 @@ func SendOTPHandler(c *gin.Context) {
 	var req domain.OTPSendRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
+		shared.RespondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
 		return
 	}
 
 	if err := SendOTPForEmail(req.Email); err != nil {
 		status, code := authErrorInfo(err)
-		respondError(c, status, err.Error(), code)
+		shared.RespondError(c, status, err.Error(), code)
 		return
 	}
 
-	respondSuccess(c, http.StatusOK, "Mã xác thực đã được gửi", nil)
+	shared.RespondSuccess(c, http.StatusOK, "Mã xác thực đã được gửi", nil)
 }
 
 // VerifyOTPHandler - Xử lý POST /api/otp/verify
@@ -152,17 +113,17 @@ func VerifyOTPHandler(c *gin.Context) {
 	var req domain.OTPVerifyRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
+		shared.RespondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
 		return
 	}
 
 	if err := VerifyOTPForEmail(req.Email, req.Code); err != nil {
 		status, code := authErrorInfo(err)
-		respondError(c, status, err.Error(), code)
+		shared.RespondError(c, status, err.Error(), code)
 		return
 	}
 
-	respondSuccess(c, http.StatusOK, "Xác thực OTP thành công", nil)
+	shared.RespondSuccess(c, http.StatusOK, "Xác thực OTP thành công", nil)
 }
 
 // ForgotPasswordHandler - Xử lý POST /api/password/forgot
@@ -170,17 +131,17 @@ func ForgotPasswordHandler(c *gin.Context) {
 	var req domain.ForgotPasswordRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
+		shared.RespondError(c, http.StatusBadRequest, shared.ErrInvalidAuthPayload.Error(), "AUTH_INVALID_PAYLOAD")
 		return
 	}
 
 	if err := RequestPasswordReset(req.Email); err != nil {
 		status, code := authErrorInfo(err)
-		respondError(c, status, err.Error(), code)
+		shared.RespondError(c, status, err.Error(), code)
 		return
 	}
 
-	respondSuccess(c, http.StatusOK, shared.ErrPasswordResetQueued.Error(), nil)
+	shared.RespondSuccess(c, http.StatusOK, shared.ErrPasswordResetQueued.Error(), nil)
 }
 
 func authErrorInfo(err error) (int, string) {
@@ -236,7 +197,7 @@ func UpdateUserHandler(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "Dữ liệu không hợp lệ", "AUTH_INVALID_PAYLOAD")
+		shared.RespondError(c, http.StatusBadRequest, "Dữ liệu không hợp lệ", "AUTH_INVALID_PAYLOAD")
 		return
 	}
 
@@ -253,52 +214,140 @@ func UpdateUserHandler(c *gin.Context) {
 			status = http.StatusConflict
 			code = "AUTH_EMAIL_ALREADY_REGISTERED"
 		}
-		respondError(c, status, err.Error(), code)
+		shared.RespondError(c, status, err.Error(), code)
 		return
 	}
 
 	// Bước 3: Trả kết quả cho client
-	respondSuccess(c, http.StatusOK, "Cập nhật thông tin thành công", gin.H{"user": updatedUser})
+	shared.RespondSuccess(c, http.StatusOK, "Cập nhật thông tin thành công", gin.H{"user": updatedUser})
+}
+
+// UploadAvatarHandler - Xử lý POST /api/v1/users/avatar
+func UploadAvatarHandler(c *gin.Context) {
+	userID, ok := GetAuthenticatedUserID(c)
+	if !ok {
+		shared.RespondError(c, http.StatusUnauthorized, "Yêu cầu đăng nhập", "UNAUTHORIZED")
+		return
+	}
+
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		shared.RespondError(c, http.StatusBadRequest, "Không tìm thấy file tải lên", "INVALID_FILE")
+		return
+	}
+
+	// Validate file size (max 5MB)
+	const maxFileSize = 5 * 1024 * 1024 // 5MB
+	if file.Size > maxFileSize {
+		shared.RespondError(c, http.StatusBadRequest, "File quá lớn. Kích thước tối đa: 5MB", "FILE_TOO_LARGE")
+		return
+	}
+
+	// Validate file type by extension
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+		shared.RespondError(c, http.StatusBadRequest, "Chỉ hỗ trợ file ảnh (jpg, png, webp)", "INVALID_FILE_TYPE")
+		return
+	}
+
+	// Validate MIME type from file content
+	openedFile, err := file.Open()
+	if err != nil {
+		shared.RespondError(c, http.StatusBadRequest, "Không thể đọc file", "FILE_READ_ERROR")
+		return
+	}
+	defer openedFile.Close()
+
+	// Read first 512 bytes to detect MIME type
+	buf := make([]byte, 512)
+	if _, err := openedFile.Read(buf); err != nil {
+		shared.RespondError(c, http.StatusBadRequest, "Không thể đọc nội dung file", "FILE_READ_ERROR")
+		return
+	}
+
+	mimeType := http.DetectContentType(buf)
+	allowedMIMEs := map[string]bool{
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/webp": true,
+	}
+	if !allowedMIMEs[mimeType] {
+		shared.RespondError(c, http.StatusBadRequest, "Nội dung file không phải ảnh hợp lệ", "INVALID_MIME_TYPE")
+		return
+	}
+
+	// Tạo thư mục nếu chưa có
+	uploadDir := "./uploads/avatars"
+	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+		shared.RespondError(c, http.StatusInternalServerError, "Lỗi server", "SERVER_ERROR")
+		return
+	}
+
+	// Lưu file với tên unique
+	fileName := fmt.Sprintf("avatar_%d_%d%s", userID, time.Now().Unix(), ext)
+	filePath := filepath.Join(uploadDir, fileName)
+
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		shared.RespondError(c, http.StatusInternalServerError, "Không thể lưu file", "SAVE_FILE_ERROR")
+		return
+	}
+
+	// Tạo URL
+	avatarURL := fmt.Sprintf("/uploads/avatars/%s", fileName)
+
+	req := domain.UpdateUserRequest{
+		AvatarURL: avatarURL,
+	}
+	
+	updatedUser, updateErr := UpdateUser(fmt.Sprintf("%d", userID), req)
+	if updateErr != nil {
+		shared.RespondError(c, http.StatusInternalServerError, "Không thể cập nhật DB", "DB_ERROR")
+		return
+	}
+
+	shared.RespondSuccess(c, http.StatusOK, "Cập nhật ảnh đại diện thành công", gin.H{
+		"avatar_url": updatedUser.AvatarURL,
+	})
 }
 
 // GetMeHandler - Xử lý GET /api/users/me
 func GetMeHandler(c *gin.Context) {
 	authUserID, ok := GetAuthenticatedUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, shared.ErrInvalidAccessToken.Error(), "AUTH_TOKEN_INVALID")
+		shared.RespondError(c, http.StatusUnauthorized, shared.ErrInvalidAccessToken.Error(), "AUTH_TOKEN_INVALID")
 		return
 	}
 
 	user, err := GetUserByID(authUserID)
 	if err != nil {
-		respondError(c, http.StatusNotFound, err.Error(), "AUTH_USER_NOT_FOUND")
+		shared.RespondError(c, http.StatusNotFound, err.Error(), "AUTH_USER_NOT_FOUND")
 		return
 	}
 
-	respondSuccess(c, http.StatusOK, "", gin.H{"user": user})
+	shared.RespondSuccess(c, http.StatusOK, "", gin.H{"user": user})
 }
 
 // ChangePasswordHandler - Xử lý PUT /api/users/me/password
 func ChangePasswordHandler(c *gin.Context) {
 	authUserID, ok := GetAuthenticatedUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, shared.ErrInvalidAccessToken.Error(), "AUTH_TOKEN_INVALID")
+		shared.RespondError(c, http.StatusUnauthorized, shared.ErrInvalidAccessToken.Error(), "AUTH_TOKEN_INVALID")
 		return
 	}
 
 	var req domain.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "Dữ liệu không hợp lệ", "AUTH_INVALID_PAYLOAD")
+		shared.RespondError(c, http.StatusBadRequest, "Dữ liệu không hợp lệ", "AUTH_INVALID_PAYLOAD")
 		return
 	}
 
 	if err := ChangePassword(authUserID, req.CurrentPassword, req.NewPassword); err != nil {
 		status, code := authErrorInfo(err)
-		respondError(c, status, err.Error(), code)
+		shared.RespondError(c, status, err.Error(), code)
 		return
 	}
 
-	respondSuccess(c, http.StatusOK, "Đổi mật khẩu thành công", nil)
+	shared.RespondSuccess(c, http.StatusOK, "Đổi mật khẩu thành công", nil)
 }
 
 // ResetPasswordHandler - Xử lý POST /api/password/reset
@@ -306,21 +355,21 @@ func ResetPasswordHandler(c *gin.Context) {
 	var req domain.ResetPasswordRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "Dữ liệu không hợp lệ", "AUTH_INVALID_PAYLOAD")
+		shared.RespondError(c, http.StatusBadRequest, "Dữ liệu không hợp lệ", "AUTH_INVALID_PAYLOAD")
 		return
 	}
 
 	if err := ResetPassword(req.Email, req.OTPCode, req.NewPassword); err != nil {
 		status, code := authErrorInfo(err)
-		respondError(c, status, err.Error(), code)
+		shared.RespondError(c, status, err.Error(), code)
 		return
 	}
 
-	respondSuccess(c, http.StatusOK, "Đặt lại mật khẩu thành công", nil)
+	shared.RespondSuccess(c, http.StatusOK, "Đặt lại mật khẩu thành công", nil)
 }
 
 // LogoutHandler - Xử lý POST /api/logout
 // Backend stateless - token không lưu server, logout chỉ cần xác nhận client clear token
 func LogoutHandler(c *gin.Context) {
-	respondSuccess(c, http.StatusOK, "Đăng xuất thành công", nil)
+	shared.RespondSuccess(c, http.StatusOK, "Đăng xuất thành công", nil)
 }

@@ -1,8 +1,8 @@
-import { createContext, useState, useContext, useCallback, useEffect } from 'react';
+import { createContext, useState, useContext, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 
-const API_BASE_URL = 'http://localhost:8080/v1/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/v1/api';
 
 const extractTokensFromAuthResponse = (payload) => {
   if (!payload || typeof payload !== 'object') {
@@ -22,8 +22,7 @@ const extractTokensFromAuthResponse = (payload) => {
     return null;
   }
   
-  // Normalize token keys: Backend uses PascalCase (AccessToken, RefreshToken)
-  // Frontend expects snake_case (access_token, refresh_token)
+  // Normalize token keys: Backend uses snake_case (access_token, refresh_token)
   return {
     access_token: tokens.AccessToken || tokens.access_token || tokens.accessToken,
     refresh_token: tokens.RefreshToken || tokens.refresh_token || tokens.refreshToken,
@@ -52,8 +51,11 @@ export const AuthProvider = ({ children }) => {
     return savedTokens ? JSON.parse(savedTokens) : null;
   });
 
-  // Trạng thái đăng nhập được suy ra trực tiếp từ user
-  const isLoggedIn = Boolean(user);
+  // Guard against re-entrant logout calls
+  const isLoggingOut = useRef(false);
+
+  // Trạng thái đăng nhập được suy ra trực tiếp từ user VÀ tokens
+  const isLoggedIn = Boolean(user && tokens?.access_token);
 
   // Role-based computed values
   const userRole = user?.role || 'customer';
@@ -66,6 +68,7 @@ export const AuthProvider = ({ children }) => {
    * Cập nhật state và lưu vào localStorage
    */
   const login = (userData, tokenData) => {
+    isLoggingOut.current = false;
     setUser(userData);
     setTokens(tokenData || null);
     
@@ -93,14 +96,28 @@ export const AuthProvider = ({ children }) => {
    * logout - Hàm xử lý khi user đăng xuất
    * Xoá state và localStorage
    */
-  const logout = () => {
+  const logout = useCallback(() => {
+    if (isLoggingOut.current) return; // Prevent re-entrant calls
+    isLoggingOut.current = true;
+    
     setUser(null);
     setTokens(null);
     localStorage.removeItem('user');
     localStorage.removeItem('auth_tokens');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-  };
+  }, []);
+
+  // Listen for auth:logout event from axiosInstance's forceLogout()
+  // This syncs AuthContext state when axiosInstance detects token expiry
+  useEffect(() => {
+    const handleForceLogout = () => {
+      logout();
+    };
+
+    window.addEventListener('auth:logout', handleForceLogout);
+    return () => window.removeEventListener('auth:logout', handleForceLogout);
+  }, [logout]);
 
   const updateTokens = (tokenData) => {
     setTokens(tokenData || null);
@@ -132,9 +149,9 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      // Backend expects "refreshToken" (PascalCase) in request body
+      // Backend expects "refreshToken" (camelCase) in request body
       const response = await axios.post(`${API_BASE_URL}/token/refresh`, {
-        refreshToken: refreshToken  // ← Backend expects this key
+        refreshToken: refreshToken
       });
 
       const nextTokens = extractTokensFromAuthResponse(response.data);
@@ -152,6 +169,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const requestWithAuth = async (requestFactory) => {
+    if (isLoggingOut.current) {
+      throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    }
+
     const firstAccessToken = getAccessToken();
     if (!firstAccessToken) {
       throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
@@ -173,7 +194,7 @@ export const AuthProvider = ({ children }) => {
   // fetchUser - Gọi GET /users/me để lấy thông tin user mới nhất từ server
   const fetchUser = useCallback(async () => {
     const accessToken = getAccessToken();
-    if (!accessToken) return null;
+    if (!accessToken || isLoggingOut.current) return null;
     try {
       const response = await axios.get(`${API_BASE_URL}/users/me`, {
         headers: { Authorization: `Bearer ${accessToken}` }
@@ -184,14 +205,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(userData));
         return userData;
       }
-    } catch {
-      // token hết hạn hoặc lỗi khác, không throw
+    } catch (err) {
+      // If 401, token is expired — logout to stop retry loops
+      if (err?.response?.status === 401) {
+        logout();
+      }
     }
     return null;
-  }, [tokens]);
+  }, [tokens?.access_token]);
 
   useEffect(() => {
-    if (tokens?.access_token) {
+    if (tokens?.access_token && !isLoggingOut.current) {
       fetchUser();
     }
   }, [tokens?.access_token, fetchUser]);
@@ -241,3 +265,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

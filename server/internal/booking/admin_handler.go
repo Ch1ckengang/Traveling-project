@@ -1,6 +1,8 @@
 package booking
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -8,9 +10,9 @@ import (
 	"travel-backend/domain"
 	"travel-backend/internal/notification"
 	"travel-backend/internal/shared"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // ===== ADMIN BOOKING HANDLERS =====
@@ -131,50 +133,77 @@ func AdminConfirmBookingHandler(c *gin.Context) {
 
 // AdminCancelBookingHandler - PUT /v1/api/admin/bookings/:code/cancel
 // Admin hủy booking (hoàn lại slots cho tour)
+// Sử dụng database transaction để đảm bảo atomic: cancel booking + restore slots
 func AdminCancelBookingHandler(c *gin.Context) {
 	code := c.Param("code")
 
 	var req struct {
 		Reason string `json:"reason"`
 	}
-	c.ShouldBindJSON(&req)
+	// Reason is optional, so we log but don't block on bind error
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// Body might be empty for cancel without reason — that's OK
+		req.Reason = ""
+	}
 
 	var booking domain.Booking
-	if err := database.DB.Where("booking_code = ?", code).First(&booking).Error; err != nil {
-		shared.RespondError(c, http.StatusNotFound, "Không tìm thấy booking", "ADMIN_BOOKING_NOT_FOUND")
-		return
-	}
 
-	status := strings.ToLower(strings.TrimSpace(booking.Status))
-	if status == "cancelled" || status == "canceled" {
-		shared.RespondError(c, http.StatusConflict, "Booking đã bị hủy trước đó", "ADMIN_BOOKING_ALREADY_CANCELLED")
-		return
-	}
+	// === BEGIN TRANSACTION ===
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		// 1. Get booking within transaction
+		if err := tx.Where("booking_code = ?", code).First(&booking).Error; err != nil {
+			return fmt.Errorf("NOT_FOUND")
+		}
 
-	// Cập nhật status
-	updates := map[string]interface{}{
-		"status":         "cancelled",
-		"payment_status": "cancelled",
-	}
-	if req.Reason != "" {
-		updates["note"] = booking.Note + " [Admin hủy: " + req.Reason + "]"
-	}
+		status := strings.ToLower(strings.TrimSpace(booking.Status))
+		if status == "cancelled" || status == "canceled" {
+			return fmt.Errorf("ALREADY_CANCELLED")
+		}
 
-	if err := database.DB.Model(&booking).Updates(updates).Error; err != nil {
+		// 2. Update booking status
+		updates := map[string]interface{}{
+			"status":         "cancelled",
+			"payment_status": "cancelled",
+		}
+		if req.Reason != "" {
+			updates["note"] = booking.Note + " [Admin hủy: " + req.Reason + "]"
+		}
+
+		if err := tx.Model(&booking).Updates(updates).Error; err != nil {
+			return fmt.Errorf("không thể cập nhật booking: %v", err)
+		}
+
+		// 3. Restore slots cho tour (trong cùng transaction)
+		if err := tx.Model(&domain.Tour{}).
+			Where("id = ?", booking.TourID).
+			Update("remaining_slots", gorm.Expr("remaining_slots + ?", booking.Quantity)).Error; err != nil {
+			return fmt.Errorf("không thể hoàn lại chỗ trống: %v", err)
+		}
+
+		return nil
+	})
+	// === END TRANSACTION ===
+
+	if err != nil {
+		if err.Error() == "NOT_FOUND" {
+			shared.RespondError(c, http.StatusNotFound, "Không tìm thấy booking", "ADMIN_BOOKING_NOT_FOUND")
+			return
+		}
+		if err.Error() == "ALREADY_CANCELLED" {
+			shared.RespondError(c, http.StatusConflict, "Booking đã bị hủy trước đó", "ADMIN_BOOKING_ALREADY_CANCELLED")
+			return
+		}
 		shared.RespondError(c, http.StatusInternalServerError, "Không thể hủy booking", "ADMIN_BOOKING_CANCEL_FAILED")
 		return
 	}
-
-	// Hoàn lại slots cho tour
-	database.DB.Model(&domain.Tour{}).
-		Where("id = ?", booking.TourID).
-		UpdateColumn("remaining_slots", database.DB.Raw("remaining_slots + ?", booking.Quantity))
 
 	database.DB.Preload("Tour").First(&booking, booking.ID)
 
 	go func() {
 		msg := fmt.Sprintf("Rất tiếc, đặt chỗ của bạn cho tour %s đã bị hủy bởi quản trị viên. Lý do: %s", booking.Tour.Name, req.Reason)
-		_ = notification.SendNotification(booking.UserID, "Đã hủy đặt chỗ", msg, domain.NotifTypeBooking)
+		if err := notification.SendNotification(booking.UserID, "Đã hủy đặt chỗ", msg, domain.NotifTypeBooking); err != nil {
+			log.Printf("[ADMIN][CANCEL] Failed to send notification for booking %s: %v", code, err)
+		}
 	}()
 
 	shared.RespondSuccess(c, http.StatusOK, "Hủy booking thành công", gin.H{

@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
@@ -20,19 +22,19 @@ const (
 // Payment - Model đại diện cho bảng payments trong database
 // Chứa thông tin về các giao dịch thanh toán qua VNPay
 type Payment struct {
-	ID                   uint      `json:"id" gorm:"primaryKey"`
-	BookingID            uint      `json:"booking_id" gorm:"not null;index"`
-	VNPayTransactionID   *string   `json:"vnpay_transaction_id" gorm:"unique;size:100"`
-	TransactionReference string    `json:"transaction_reference" gorm:"uniqueIndex;not null;size:50"`
-	Amount               int64     `json:"amount" gorm:"not null"` // Amount in VND cents (multiply by 100)
-	Currency             string    `json:"currency" gorm:"not null;default:'VND';size:3"`
-	PaymentMethod        *string   `json:"payment_method" gorm:"size:50"`
-	Status               string    `json:"status" gorm:"not null;default:'pending';size:20;index"`
-	VNPayResponseCode    *string   `json:"vnpay_response_code" gorm:"size:10"`
-	VNPayMessage         *string   `json:"vnpay_message" gorm:"type:text"`
+	ID                   uint       `json:"id" gorm:"primaryKey"`
+	BookingID            uint       `json:"booking_id" gorm:"not null;index"`
+	VNPayTransactionID   *string    `json:"vnpay_transaction_id" gorm:"unique;size:100"`
+	TransactionReference string     `json:"transaction_reference" gorm:"uniqueIndex;not null;size:50"`
+	Amount               int64      `json:"amount" gorm:"not null"` // Amount in VND
+	Currency             string     `json:"currency" gorm:"not null;default:'VND';size:3"`
+	PaymentMethod        *string    `json:"payment_method" gorm:"size:50"`
+	Status               string     `json:"status" gorm:"not null;default:'pending';size:20;index"`
+	VNPayResponseCode    *string    `json:"vnpay_response_code" gorm:"size:10"`
+	VNPayMessage         *string    `json:"vnpay_message" gorm:"type:text"`
 	SessionExpiresAt     *time.Time `json:"session_expires_at"`
-	CreatedAt            time.Time `json:"created_at"`
-	UpdatedAt            time.Time `json:"updated_at"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
 	DeletedAt            *time.Time `json:"deleted_at" gorm:"index"`
 
 	// Relationships
@@ -46,17 +48,17 @@ func (p *Payment) ValidateAmount() error {
 	if p.Amount <= 0 {
 		return errors.New("payment amount must be positive")
 	}
-	
-	// VNPay minimum amount is 5,000 VND (500,000 cents)
-	if p.Amount < 500000 {
+
+	// VNPay minimum amount is 5,000 VND
+	if p.Amount < 5000 {
 		return errors.New("payment amount must be at least 5,000 VND")
 	}
-	
-	// VNPay maximum amount is 500,000,000 VND (50,000,000,000 cents)
-	if p.Amount > 50000000000 {
+
+	// VNPay maximum amount is 500,000,000 VND
+	if p.Amount > 500000000 {
 		return errors.New("payment amount exceeds maximum limit of 500,000,000 VND")
 	}
-	
+
 	return nil
 }
 
@@ -65,9 +67,9 @@ func (p *Payment) ValidateStatusTransition(newStatus string) error {
 	if !isValidPaymentStatus(newStatus) {
 		return fmt.Errorf("invalid payment status: %s", newStatus)
 	}
-	
+
 	currentStatus := p.Status
-	
+
 	// Define valid status transitions
 	validTransitions := map[string][]string{
 		PaymentStatusPending: {
@@ -94,18 +96,18 @@ func (p *Payment) ValidateStatusTransition(newStatus string) error {
 			// Terminal state - no transitions allowed
 		},
 	}
-	
+
 	allowedStatuses, exists := validTransitions[currentStatus]
 	if !exists {
 		return fmt.Errorf("no valid transitions defined for status: %s", currentStatus)
 	}
-	
+
 	for _, allowedStatus := range allowedStatuses {
 		if newStatus == allowedStatus {
 			return nil
 		}
 	}
-	
+
 	return fmt.Errorf("invalid status transition from %s to %s", currentStatus, newStatus)
 }
 
@@ -114,18 +116,20 @@ func (p *Payment) ValidateTransactionReference() error {
 	if p.TransactionReference == "" {
 		return errors.New("transaction reference is required")
 	}
-	
-	// Transaction reference format: PAY + YYYYMMDD + sequential number (e.g., PAY20240430001)
-	pattern := `^PAY\d{8}\d{3,6}$`
+
+	// Transaction reference format:
+	//   PAY + YYYYMMDD + hex/numeric suffix
+	//   e.g., PAY20240430001 (legacy) or PAY20240430a1b2c3d4 (crypto/rand hex)
+	pattern := `^PAY\d{8}[a-f0-9]{3,8}$`
 	matched, err := regexp.MatchString(pattern, p.TransactionReference)
 	if err != nil {
 		return fmt.Errorf("error validating transaction reference format: %w", err)
 	}
-	
+
 	if !matched {
-		return errors.New("transaction reference must follow format: PAY + YYYYMMDD + sequential number")
+		return errors.New("invalid transaction reference format")
 	}
-	
+
 	return nil
 }
 
@@ -145,7 +149,7 @@ func (p *Payment) CanRetry() bool {
 	if p.Status != PaymentStatusFailed && p.Status != PaymentStatusExpired {
 		return false
 	}
-	
+
 	// Check if payment is not older than 24 hours
 	retryDeadline := p.CreatedAt.Add(24 * time.Hour)
 	return time.Now().Before(retryDeadline)
@@ -166,20 +170,19 @@ func (p *Payment) IsTerminal() bool {
 	return p.Status == PaymentStatusPaid || p.Status == PaymentStatusRefunded
 }
 
-// GetAmountInVND - Lấy số tiền theo đơn vị VND (chia cho 100)
+// GetAmountInVND - Lấy số tiền theo đơn vị VND
 func (p *Payment) GetAmountInVND() float64 {
-	return float64(p.Amount) / 100.0
+	return float64(p.Amount)
 }
 
-// SetAmountFromVND - Đặt số tiền từ đơn vị VND (nhân với 100)
+// SetAmountFromVND - Đặt số tiền từ đơn vị VND
 func (p *Payment) SetAmountFromVND(amountVND float64) error {
 	if amountVND <= 0 {
 		return errors.New("amount must be positive")
 	}
-	
-	// Convert to cents and round to avoid floating point precision issues
-	p.Amount = int64(amountVND * 100 + 0.5)
-	
+
+	p.Amount = int64(amountVND + 0.5)
+
 	return p.ValidateAmount()
 }
 
@@ -193,11 +196,11 @@ func (p *Payment) GetStatusDisplayName() string {
 		PaymentStatusRefunded:   "Đã hoàn tiền",
 		PaymentStatusExpired:    "Hết hạn",
 	}
-	
+
 	if displayName, exists := statusNames[p.Status]; exists {
 		return displayName
 	}
-	
+
 	return "Không xác định"
 }
 
@@ -206,10 +209,10 @@ func (p *Payment) UpdateStatus(newStatus string) error {
 	if err := p.ValidateStatusTransition(newStatus); err != nil {
 		return err
 	}
-	
+
 	p.Status = newStatus
 	p.UpdatedAt = time.Now()
-	
+
 	return nil
 }
 
@@ -239,32 +242,37 @@ func isValidPaymentStatus(status string) bool {
 		PaymentStatusRefunded,
 		PaymentStatusExpired,
 	}
-	
+
 	for _, validStatus := range validStatuses {
 		if status == validStatus {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // GenerateTransactionReference - Tạo mã tham chiếu giao dịch duy nhất
+// Sử dụng crypto/rand để đảm bảo uniqueness trong high concurrency
 func GenerateTransactionReference() string {
 	now := time.Now()
 	dateStr := now.Format("20060102")
-	
-	// Generate a sequential number based on timestamp (microseconds)
-	seqNum := now.UnixMicro() % 1000000 // Get last 6 digits of microseconds
-	
-	return fmt.Sprintf("PAY%s%06d", dateStr, seqNum)
+
+	b := make([]byte, 4) // 4 bytes = 8 hex chars
+	if _, err := rand.Read(b); err != nil {
+		// Fallback nếu crypto/rand fail
+		seqNum := now.UnixMicro() % 1000000
+		return fmt.Sprintf("PAY%s%06d", dateStr, seqNum)
+	}
+
+	return fmt.Sprintf("PAY%s%s", dateStr, hex.EncodeToString(b))
 }
 
 // NewPayment - Tạo payment mới với các giá trị mặc định
 func NewPayment(bookingID uint, amount int64) *Payment {
 	now := time.Now()
 	expiresAt := now.Add(15 * time.Minute) // 15 minutes expiration
-	
+
 	return &Payment{
 		BookingID:            bookingID,
 		TransactionReference: GenerateTransactionReference(),

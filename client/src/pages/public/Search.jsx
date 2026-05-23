@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { searchTours } from '../../services/tourService';
+import { logActivity } from '../../services/trackingService';
 import '../../styles/Search.css';
 
 const SearchPage = () => {
@@ -18,9 +19,13 @@ const SearchPage = () => {
     setHasSearched(true);
     try {
       const result = await searchTours(kw);
-      // API trả về { success, data: [...], total } hoặc array trực tiếp
       const list = result?.data || (Array.isArray(result) ? result : []);
       setTours(list);
+      
+      // Log search activity
+      if (kw.trim().length > 0) {
+        logActivity('search', { search_keyword: kw });
+      }
     } catch {
       setError('Không thể tìm kiếm. Vui lòng thử lại.');
       setTours([]);

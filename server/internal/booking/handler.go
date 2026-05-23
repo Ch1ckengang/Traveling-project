@@ -2,6 +2,7 @@ package booking
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 	"travel-backend/domain"
@@ -263,3 +264,38 @@ func GetBookingByCodeHandler(c *gin.Context) {
 	})
 }
 
+// DownloadInvoiceHandler - GET /api/v1/bookings/code/:code/invoice
+func DownloadInvoiceHandler(c *gin.Context) {
+	authUserID, ok := authmodule.GetAuthenticatedUserID(c)
+	if !ok {
+		shared.RespondError(c, http.StatusUnauthorized, "Yêu cầu đăng nhập", "UNAUTHORIZED")
+		return
+	}
+
+	bookingCode := c.Param("code")
+
+	booking, err := GetBookingByCode(bookingCode)
+	if err != nil {
+		shared.RespondError(c, http.StatusNotFound, "Không tìm thấy booking", "BOOKING_NOT_FOUND")
+		return
+	}
+
+	if booking.UserID != authUserID {
+		shared.RespondError(c, http.StatusForbidden, "Bạn không có quyền tải hóa đơn này", "FORBIDDEN")
+		return
+	}
+
+	if booking.PaymentStatus != "paid" {
+		shared.RespondError(c, http.StatusBadRequest, "Booking chưa được thanh toán", "BOOKING_UNPAID")
+		return
+	}
+
+	pdfBytes, err := GenerateInvoicePDF(booking)
+	if err != nil {
+		shared.RespondError(c, http.StatusInternalServerError, "Lỗi tạo PDF", "INVOICE_GENERATION_FAILED")
+		return
+	}
+
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=invoice_%s.pdf", bookingCode))
+	c.Data(http.StatusOK, "application/pdf", pdfBytes)
+}

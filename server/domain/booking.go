@@ -16,6 +16,7 @@ type Booking struct {
 	InfantCount     int        `json:"infant_count" gorm:"not null;default:0"`
 	Quantity        int        `json:"quantity" gorm:"not null"`
 	TravelDate      string     `json:"travel_date" gorm:"not null"`
+	ScheduleID      *uint      `json:"schedule_id" gorm:"index"`
 	TotalAmount     int64      `json:"total_amount" gorm:"not null;default:0"`
 	CouponCode      string     `json:"coupon_code" gorm:"size:50"`
 	DiscountAmount  int64      `json:"discount_amount" gorm:"default:0"`
@@ -29,5 +30,6 @@ type Booking struct {
 	UpdatedAt       time.Time  `json:"updated_at"`
 
 	// Relationships
-	Payment *Payment `json:"payment,omitempty" gorm:"foreignKey:PaymentID"`
+	Payment      *Payment      `json:"payment,omitempty" gorm:"foreignKey:PaymentID"`
+	TourSchedule *TourSchedule `json:"schedule,omitempty" gorm:"foreignKey:ScheduleID"`
 }

@@ -6,7 +6,7 @@ import '../../styles/Auth.css';
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRE_SECONDS = 180;
-const API_BASE_URL = 'http://localhost:8080/v1/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/v1/api';
 
 const maskEmail = (email) => {
   if (!email || !email.includes('@')) {

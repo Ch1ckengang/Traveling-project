@@ -7,7 +7,7 @@ import { changePassword as apiChangePassword } from '../../services/authService'
 import '../../styles/Profile.css';
 
 
-const API_BASE_URL = 'http://localhost:8080/v1/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/v1/api';
 
 const extractUserFromAuthResponse = (payload) => {
   if (!payload || typeof payload !== 'object') {
@@ -98,6 +98,7 @@ const Profile = () => {
   const [error, setError] = useState(''); // Thông báo lỗi
   const [success, setSuccess] = useState(''); // Thông báo thành công
   const [loading, setLoading] = useState(false); // Trạng thái đang xử lý
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
 
   const [bookings, setBookings] = useState([]);
@@ -281,7 +282,7 @@ const Profile = () => {
       };
 
       const response = await requestWithAuth((accessToken) => axios.put(
-        `http://localhost:8080/v1/api/users/${user.id}`,
+        `${API_BASE_URL}/users/${user.id}`,
         updateData,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       ));
@@ -324,6 +325,57 @@ const Profile = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!user?.id) {
+      setError('Vui lòng đăng nhập lại.');
+      return;
+    }
+
+    const formDataFile = new FormData();
+    formDataFile.append('avatar', file);
+
+    setUploadingAvatar(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await requestWithAuth((accessToken) => axios.post(
+        `${API_BASE_URL}/users/avatar`,
+        formDataFile,
+        { 
+          headers: { 
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'multipart/form-data'
+          } 
+        }
+      ));
+
+      if (response.data.success) {
+        const newAvatarUrl = response.data.data.avatar_url;
+        // Construct full URL if needed
+        const fullAvatarUrl = newAvatarUrl.startsWith('http') ? newAvatarUrl : `${new URL(API_BASE_URL).origin}${newAvatarUrl}`;
+        
+        setFormData(prev => ({ ...prev, avatar_url: fullAvatarUrl }));
+        setOriginalData(prev => ({ ...prev, avatar_url: fullAvatarUrl }));
+        setSuccess('Cập nhật ảnh đại diện thành công!');
+        
+        // Update auth context
+        const updatedUser = { ...user, avatar_url: fullAvatarUrl };
+        login(updatedUser, tokens);
+        if (updateUser) updateUser(updatedUser);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Không thể tải ảnh lên.');
+    } finally {
+      setUploadingAvatar(false);
+      // Reset input
+      e.target.value = null;
     }
   };
 
@@ -421,6 +473,45 @@ const Profile = () => {
               >
                 {cancelingBookingId === booking.id ? 'Đang hủy...' : 'Hủy tour'}
               </button>
+              
+              {booking.payment_status === 'paid' && (
+                <button
+                  type="button"
+                  className="btn-download-invoice"
+                  onClick={async () => {
+                    try {
+                      const response = await requestWithAuth((accessToken) => axios.get(
+                        `${API_BASE_URL}/bookings/code/${booking.booking_code}/invoice`,
+                        {
+                          headers: { Authorization: `Bearer ${accessToken}` },
+                          responseType: 'blob'
+                        }
+                      ));
+                      const url = window.URL.createObjectURL(new Blob([response.data]));
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.setAttribute('download', `invoice_${booking.booking_code}.pdf`);
+                      document.body.appendChild(link);
+                      link.click();
+                      link.remove();
+                    } catch (err) {
+                      alert('Không thể tải hóa đơn. Vui lòng thử lại sau.');
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  Tải hóa đơn
+                </button>
+              )}
             </div>
           </article>
         ))}
@@ -432,13 +523,26 @@ const Profile = () => {
     <div className="profile-container">
       <div className="profile-box">
         <aside className="profile-sidebar">
-          <div className="profile-header">
-            <div className="profile-avatar-large">
+          <div className="profile-header" style={{ position: 'relative' }}>
+            <div className="profile-avatar-large" style={{ position: 'relative', overflow: 'hidden' }}>
               {user.avatar_url ? (
-                <img src={user.avatar_url} alt={user.name || 'Avatar'} />
+                <img src={user.avatar_url} alt={user.name || 'Avatar'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 user.name?.charAt(0).toUpperCase()
               )}
+              <label 
+                className="avatar-upload-overlay" 
+                style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.5)',
+                  color: 'white', fontSize: '0.75rem', padding: '4px 0', textAlign: 'center', cursor: 'pointer',
+                  opacity: uploadingAvatar ? 1 : 0, transition: 'opacity 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                onMouseLeave={(e) => !uploadingAvatar && (e.currentTarget.style.opacity = 0)}
+              >
+                {uploadingAvatar ? 'Đang tải...' : 'Đổi ảnh'}
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+              </label>
             </div>
             <h2>{user.name}</h2>
             <p className="profile-email">{user.email}</p>
@@ -541,7 +645,8 @@ const Profile = () => {
                     />
                   </div>
 
-                  <div className="form-group">
+                  <div className="form-group" style={{ display: 'none' }}>
+                    {/* Hide URL input since we use file upload now */}
                     <label>Avatar URL</label>
                     <input
                       type="url"

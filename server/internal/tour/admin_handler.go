@@ -3,6 +3,7 @@ package tour
 import (
 	"net/http"
 	"strconv"
+	"log"
 	"travel-backend/database"
 	"travel-backend/domain"
 	"travel-backend/internal/shared"
@@ -59,11 +60,12 @@ func AdminCreateTourHandler(c *gin.Context) {
 		Description   string `json:"description"`
 		Location      string `json:"location"`
 		Country       string `json:"country"`
-		Duration      string `json:"duration"`
-		DepartureDate string `json:"departure_date"`
-		Itinerary     string `json:"itinerary"`
-		Services      string `json:"services"`
-		ImageURL      string `json:"image_url"`
+		Duration      string   `json:"duration"`
+		DepartureDate string   `json:"departure_date"`
+		Itinerary     string   `json:"itinerary"`
+		Services      string   `json:"services"`
+		ImageURL      string   `json:"image_url"`
+		Images        []string `json:"images"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -94,6 +96,24 @@ func AdminCreateTourHandler(c *gin.Context) {
 		return
 	}
 
+	// Insert images
+	if len(req.Images) > 0 {
+		var tourImages []domain.TourImage
+		for _, imgURL := range req.Images {
+			tourImages = append(tourImages, domain.TourImage{
+				TourID:   tour.ID,
+				ImageURL: imgURL,
+			})
+		}
+		if err := database.DB.Create(&tourImages).Error; err != nil {
+			// Just log the error, don't fail the creation
+			log.Printf("Warning: failed to insert tour images: %v", err)
+		}
+	}
+	
+	// Reload tour to include images
+	database.DB.Preload("Images").First(&tour, tour.ID)
+
 	shared.RespondSuccess(c, http.StatusCreated, "Tạo tour thành công", gin.H{"tour": tour})
 }
 
@@ -121,10 +141,11 @@ func AdminUpdateTourHandler(c *gin.Context) {
 		Country       *string `json:"country"`
 		Duration      *string `json:"duration"`
 		DepartureDate *string `json:"departure_date"`
-		Itinerary     *string `json:"itinerary"`
-		Services      *string `json:"services"`
-		ImageURL      *string `json:"image_url"`
-		RemainingSlots *int   `json:"remaining_slots"`
+		Itinerary     *string   `json:"itinerary"`
+		Services      *string   `json:"services"`
+		ImageURL      *string   `json:"image_url"`
+		Images        *[]string `json:"images"`
+		RemainingSlots *int     `json:"remaining_slots"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -182,8 +203,26 @@ func AdminUpdateTourHandler(c *gin.Context) {
 		return
 	}
 
+	// Xử lý update mảng ảnh
+	if req.Images != nil {
+		// Xóa các ảnh cũ
+		database.DB.Where("tour_id = ?", tour.ID).Delete(&domain.TourImage{})
+		
+		// Thêm ảnh mới
+		if len(*req.Images) > 0 {
+			var tourImages []domain.TourImage
+			for _, imgURL := range *req.Images {
+				tourImages = append(tourImages, domain.TourImage{
+					TourID:   tour.ID,
+					ImageURL: imgURL,
+				})
+			}
+			database.DB.Create(&tourImages)
+		}
+	}
+
 	// Reload tour
-	database.DB.First(&tour, id)
+	database.DB.Preload("Images").First(&tour, id)
 	shared.RespondSuccess(c, http.StatusOK, "Cập nhật tour thành công", gin.H{"tour": tour})
 }
 

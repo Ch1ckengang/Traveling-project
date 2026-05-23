@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { adminGetTours, adminCreateTour, adminUpdateTour, adminDeleteTour, adminToggleTour } from '../../services/adminService';
+import AdminTourSchedules from '../../components/Admin/AdminTourSchedules';
 import './AdminPage.css';
 
 const AdminToursPage = () => {
@@ -10,13 +11,15 @@ const AdminToursPage = () => {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [activeTourForSchedule, setActiveTourForSchedule] = useState(null);
   const [editTour, setEditTour] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
     name: '', type: 'domestic', price_amount: '', description: '',
     location: '', country: 'Việt Nam', duration: '', departure_date: '',
-    itinerary: '', services: '', image_url: '',
+    itinerary: '', services: '', image_url: '', images_input: ''
   });
 
   const fetchTours = useCallback(async () => {
@@ -37,7 +40,12 @@ const AdminToursPage = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      const data = { ...form, price_amount: parseInt(form.price_amount) || 0 };
+      const images = form.images_input
+        .split('\n')
+        .map(url => url.trim())
+        .filter(url => url.length > 0);
+        
+      const data = { ...form, price_amount: parseInt(form.price_amount) || 0, images };
       if (editTour) {
         await adminUpdateTour(editTour.id, data);
       } else {
@@ -61,6 +69,7 @@ const AdminToursPage = () => {
       country: tour.country || 'Việt Nam', duration: tour.duration || '',
       departure_date: tour.departure_date || '', itinerary: tour.itinerary || '',
       services: tour.services || '', image_url: tour.image_url || '',
+      images_input: tour.images ? tour.images.map(img => img.image_url).join('\n') : '',
     });
     setShowModal(true);
   };
@@ -88,7 +97,7 @@ const AdminToursPage = () => {
     setForm({
       name: '', type: 'domestic', price_amount: '', description: '',
       location: '', country: 'Việt Nam', duration: '', departure_date: '',
-      itinerary: '', services: '', image_url: '',
+      itinerary: '', services: '', image_url: '', images_input: ''
     });
   };
 
@@ -161,6 +170,9 @@ const AdminToursPage = () => {
                       <button className="btn-sm btn-toggle" onClick={() => handleToggle(tour.id)}>
                         {tour.is_active ? 'Ẩn' : 'Hiện'}
                       </button>
+                      <button className="btn-sm btn-edit" style={{ backgroundColor: '#10b981', color: 'white' }} onClick={() => { setActiveTourForSchedule(tour); setShowScheduleModal(true); }}>
+                        Lịch
+                      </button>
                       {!tour.is_active && (
                         <button className="btn-sm btn-delete" onClick={() => handleDelete(tour.id)}>Xóa</button>
                       )}
@@ -229,8 +241,12 @@ const AdminToursPage = () => {
                   <textarea rows="2" value={form.services} onChange={(e) => setForm({...form, services: e.target.value})} />
                 </div>
                 <div className="form-group full-width">
-                  <label>URL hình ảnh</label>
+                  <label>URL hình ảnh chính</label>
                   <input value={form.image_url} onChange={(e) => setForm({...form, image_url: e.target.value})} placeholder="https://..." />
+                </div>
+                <div className="form-group full-width">
+                  <label>Thư viện ảnh (Mỗi URL một dòng)</label>
+                  <textarea rows="3" value={form.images_input} onChange={(e) => setForm({...form, images_input: e.target.value})} placeholder="https://url1.jpg&#10;https://url2.jpg" />
                 </div>
               </div>
               <div className="modal-actions">
@@ -242,6 +258,14 @@ const AdminToursPage = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal Quản lý lịch trình */}
+      {showScheduleModal && activeTourForSchedule && (
+        <AdminTourSchedules 
+          tour={activeTourForSchedule} 
+          onClose={() => { setShowScheduleModal(false); setActiveTourForSchedule(null); }} 
+        />
       )}
     </div>
   );

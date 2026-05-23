@@ -26,9 +26,34 @@ type Tour struct {
 	IsActive       bool      `json:"is_active" gorm:"not null;default:true"`
 	Itinerary      string    `json:"itinerary"`
 	Services       string    `json:"services"`
-	ImageURL       string    `json:"image_url" gorm:"default:''"`
+	ImageURL       string      `json:"image_url" gorm:"default:''"`
+	CreatedAt      time.Time   `json:"created_at"`
+	UpdatedAt      time.Time   `json:"updated_at"`
+
+	Images         []TourImage    `json:"images,omitempty" gorm:"foreignKey:TourID;constraint:OnDelete:CASCADE"`
+	Schedules      []TourSchedule `json:"schedules,omitempty" gorm:"foreignKey:TourID;constraint:OnDelete:CASCADE"`
+}
+
+// TourSchedule - Lịch khởi hành cố định của Tour
+type TourSchedule struct {
+	ID             uint      `json:"id" gorm:"primaryKey"`
+	TourID         uint      `json:"tour_id" gorm:"not null;index"`
+	DepartureDate  time.Time `json:"departure_date" gorm:"not null"`
+	ReturnDate     time.Time `json:"return_date"`
+	TotalSlots     int       `json:"total_slots" gorm:"not null;default:30"`
+	RemainingSlots int       `json:"remaining_slots" gorm:"not null;default:30"`
+	PriceModifier  int64     `json:"price_modifier" gorm:"default:0"` // Có thể tăng hoặc giảm giá cho ngày lễ
+	Status         string    `json:"status" gorm:"not null;default:'active'"` // active, cancelled
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+// TourImage - Hình ảnh chi tiết của Tour
+type TourImage struct {
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	TourID    uint      `json:"tour_id" gorm:"not null;index"`
+	ImageURL  string    `json:"image_url" gorm:"not null"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // FormatPriceVND - Format giá thành chuỗi VND đẹp (ví dụ: "2.000.000đ")
@@ -52,6 +77,33 @@ func FormatPriceVND(amount int64) string {
 	}
 	result.WriteString("đ")
 	return result.String()
+}
+
+// ParsePriceVND - Parse chuỗi giá VND (ví dụ: "5.000.000đ") thành int64 (5000000)
+// Hỗ trợ các format: "5.000.000đ", "5000000", "5.000.000 đ", "5,000,000"
+func ParsePriceVND(priceStr string) int64 {
+	// Remove đ, VND, spaces
+	cleaned := strings.TrimSpace(priceStr)
+	cleaned = strings.ReplaceAll(cleaned, "đ", "")
+	cleaned = strings.ReplaceAll(cleaned, "VND", "")
+	cleaned = strings.ReplaceAll(cleaned, "vnd", "")
+	cleaned = strings.ReplaceAll(cleaned, " ", "")
+	// Remove thousand separators (dots and commas)
+	cleaned = strings.ReplaceAll(cleaned, ".", "")
+	cleaned = strings.ReplaceAll(cleaned, ",", "")
+	cleaned = strings.TrimSpace(cleaned)
+
+	if cleaned == "" {
+		return 0
+	}
+
+	var result int64
+	for _, ch := range cleaned {
+		if ch >= '0' && ch <= '9' {
+			result = result*10 + int64(ch-'0')
+		}
+	}
+	return result
 }
 
 // GenerateSlug - Tạo slug từ tên tour (đơn giản)

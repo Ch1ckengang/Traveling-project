@@ -1,4 +1,4 @@
-import axiosInstance from '../../utils/axiosInstance';
+import axiosInstance from '../utils/axiosInstance';
 
 export const getNotifications = async (params = {}) => {
   const res = await axiosInstance.get('/notifications', { params });

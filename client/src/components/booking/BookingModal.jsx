@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createBooking } from '../../services/bookingService';
 import { validateCoupon } from '../../services/couponService';
+import { getTourSchedules } from '../../services/tourService';
 import DateInput from '../ui/DateInput';
 
 const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
@@ -12,7 +13,7 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
     childCount: 0,
     infantCount: 0,
     travelDate: '',
-    travelDate: '',
+    scheduleId: '',
     notes: '',
     couponCode: ''
   });
@@ -23,6 +24,30 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [couponError, setCouponError] = useState(null);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
+
+  // Schedules state
+  const [schedules, setSchedules] = useState([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && tour?.id) {
+      fetchSchedules();
+    }
+  }, [isOpen, tour?.id]);
+
+  const fetchSchedules = async () => {
+    try {
+      setLoadingSchedules(true);
+      const res = await getTourSchedules(tour.id);
+      if (res.success && res.data) {
+        setSchedules(res.data);
+      }
+    } catch (err) {
+      console.error('Lỗi lấy lịch trình:', err);
+    } finally {
+      setLoadingSchedules(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -50,16 +75,26 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
 
   // Helper to calculate raw total amount
   const calculateTotal = () => {
-    // Assuming tour.price_amount is available or parse tour.price
     const priceRaw = tour.price_amount || parseInt(tour.price.replace(/\D/g, '')) || 0;
+    
+    // Add schedule price modifier if selected
+    let scheduleModifier = 0;
+    if (formData.scheduleId) {
+      const selectedSchedule = schedules.find(s => s.id === parseInt(formData.scheduleId));
+      if (selectedSchedule) {
+        scheduleModifier = selectedSchedule.price_modifier || 0;
+      }
+    }
+    
+    const baseAdultPrice = priceRaw + scheduleModifier;
+
     const adults = parseInt(formData.adultCount || 0);
     const children = parseInt(formData.childCount || 0);
     const infants = parseInt(formData.infantCount || 0);
     
-    // Adult: 100%, Child: 75%, Infant: 25% (Matching backend logic)
-    const adultTotal = priceRaw * adults;
-    const childTotal = (priceRaw * 75 / 100) * children;
-    const infantTotal = (priceRaw * 25 / 100) * infants;
+    const adultTotal = baseAdultPrice * adults;
+    const childTotal = (baseAdultPrice * 75 / 100) * children;
+    const infantTotal = (baseAdultPrice * 25 / 100) * infants;
     
     return adultTotal + childTotal + infantTotal;
   };
@@ -86,14 +121,34 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
     e.preventDefault();
     
     // Validation
-    if (!formData.fullName || !formData.phone || !formData.email || !formData.travelDate) {
+    if (!formData.fullName || !formData.phone || !formData.email) {
       setError('Vui lòng điền đầy đủ thông tin bắt buộc');
       return;
     }
 
+    if (schedules.length > 0 && !formData.scheduleId) {
+      setError('Vui lòng chọn ngày khởi hành');
+      return;
+    }
+
+    if (schedules.length === 0 && !formData.travelDate) {
+      setError('Vui lòng nhập ngày khởi hành');
+      return;
+    }
+
     const totalPeople = parseInt(formData.adultCount) + parseInt(formData.childCount) + parseInt(formData.infantCount);
-    if (totalPeople > tour.remaining_slots) {
-      setError(`Chỉ còn ${tour.remaining_slots} chỗ trống`);
+    
+    // Check against schedule slots if selected, else tour slots
+    let availableSlots = tour.remaining_slots;
+    if (formData.scheduleId) {
+      const selectedSchedule = schedules.find(s => s.id === parseInt(formData.scheduleId));
+      if (selectedSchedule) {
+        availableSlots = selectedSchedule.remaining_slots;
+      }
+    }
+
+    if (totalPeople > availableSlots) {
+      setError(`Chỉ còn ${availableSlots} chỗ trống`);
       return;
     }
 
@@ -121,7 +176,8 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
         adult_count: parseInt(formData.adultCount),
         child_count: parseInt(formData.childCount),
         infant_count: parseInt(formData.infantCount),
-        travel_date: formData.travelDate,
+        travel_date: schedules.length > 0 ? '' : formData.travelDate,
+        schedule_id: formData.scheduleId ? parseInt(formData.scheduleId) : undefined,
         coupon_code: appliedCoupon ? appliedCoupon.coupon_code : '',
         note: formData.notes
       };
@@ -251,16 +307,40 @@ const BookingModal = ({ tour, isOpen, onClose, onSuccess }) => {
               <label className="block text-sm font-medium mb-1">
                 Ngày khởi hành <span className="text-red-500">*</span>
               </label>
-              <DateInput
-                name="travelDate"
-                value={formData.travelDate}
-                onChange={handleChange}
-                min={new Date().toISOString().split('T')[0]}
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Nhập theo định dạng: ngày/tháng/năm (ví dụ: 15/05/2026)
-              </p>
+              {loadingSchedules ? (
+                <div className="text-sm text-gray-500">Đang tải lịch trình...</div>
+              ) : schedules.length > 0 ? (
+                <select
+                  name="scheduleId"
+                  value={formData.scheduleId}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">-- Chọn ngày khởi hành --</option>
+                  {schedules.map(schedule => (
+                    <option key={schedule.id} value={schedule.id}>
+                      {new Date(schedule.departure_date).toLocaleDateString('vi-VN')} 
+                      {schedule.price_modifier > 0 ? ` (+${schedule.price_modifier.toLocaleString('vi-VN')}đ)` : ''} 
+                      {schedule.price_modifier < 0 ? ` (${schedule.price_modifier.toLocaleString('vi-VN')}đ)` : ''} 
+                      {' '}- Còn {schedule.remaining_slots} chỗ
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <>
+                  <DateInput
+                    name="travelDate"
+                    value={formData.travelDate}
+                    onChange={handleChange}
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Nhập theo định dạng: ngày/tháng/năm (ví dụ: 15/05/2026)
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-4 mb-4">

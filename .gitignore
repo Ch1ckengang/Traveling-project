@@ -1,8 +1,9 @@
-cat << 'EOF' > .gitignore
 # --- PHẦN CỦA REACT (FRONTEND) ---
 client/node_modules/
 client/dist/
 client/.env
+client/.env.local
+client/.env.production
 
 # --- PHẦN CỦA GOLANG (BACKEND) ---
 server/main
@@ -18,4 +19,10 @@ server/.env
 # --- PHẦN CỦA HỆ ĐIỀU HÀNH & EDITOR ---
 .vscode/
 .DS_Store
-EOF
+
+# --- KIRO & AGENT FOLDERS ---
+.kiro/
+.agent/
+
+# --- UPLOADS ---
+server/uploads/

@@ -27,7 +27,13 @@ const TourListPage = () => {
         data = await getTours();
       }
       
-      setTours(data);
+      if (data && data.success && Array.isArray(data.data)) {
+        setTours(data.data);
+      } else if (Array.isArray(data)) {
+        setTours(data); // Fallback if API hasn't been standardized
+      } else {
+        setTours([]);
+      }
       setError(null);
     } catch (err) {
       console.error('Error fetching tours:', err);

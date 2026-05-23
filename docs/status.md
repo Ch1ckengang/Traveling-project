@@ -1,7 +1,7 @@
 # 📊 TRẠNG THÁI DỰ ÁN TRAVELING
 
-**Cập nhật lần cuối:** 2026-05-13  
-**Tiến độ tổng thể:** ~60-65% (Phase 0-2 hoàn thành, Phase 3 đang thực hiện)
+**Cập nhật lần cuối:** 2026-05-17
+**Tiến độ tổng thể:** ~75-80% (Payment hardened through Option A-C, core modules completed)
 
 ---
 
@@ -35,13 +35,32 @@
 
 ## ✅ PHASE 1: PAYMENT MODULE — HOÀN THÀNH
 
+### Completion Scope
+- [x] Option A: Sandbox-ready payment flow
+  - Chuẩn hóa amount theo VND, chỉ nhân x100 tại VNPay gateway boundary
+  - ReturnURL chỉ verify checksum và redirect UI; IPN là nguồn cập nhật trạng thái chính
+  - Hỗ trợ VNPay IPN qua GET và POST query/form params
+  - Dùng env cho API/frontend URLs thay vì hardcode localhost
+  - Thêm focused tests cho amount, VNPay amount encoding, config, redirect URL
+- [x] Option B: Production-ready VNPay foundation
+  - IPN xử lý idempotent với transaction + row lock
+  - Verify `vnp_Amount`, `vnp_ResponseCode`, `vnp_TransactionStatus` trước khi cập nhật paid/failed
+  - Atomic update payment + booking + audit log
+  - Production config yêu cầu HTTPS cho ReturnURL, IPNURL, FrontendURL
+- [x] Option C: Multi-method foundation
+  - Thêm `PaymentGateway` interface để tách orchestration khỏi VNPay implementation
+  - VNPay client implement provider boundary (`ProviderName`, URL generation, signature validation, response parsing)
+
 ### Backend
 | File | Mô tả | Trạng thái |
 |------|--------|------------|
-| `payment/vnpay_client.go` | HMAC-SHA512, URL generation, signature validation | ✅ |
-| `payment/service.go` | InitiatePayment, ProcessReturn, ProcessWebhook, GetPaymentStatus | ✅ |
-| `payment/handler.go` | 5 HTTP endpoints | ✅ |
-| `payment/config.go` | LoadVNPayConfig convenience wrapper | ✅ |
+| `domain/payment.go` | Payment amount stored in VND, validation, summaries | ✅ |
+| `payment/gateway.go` | Provider abstraction for VNPay/future gateways | ✅ |
+| `payment/vnpay_client.go` | HMAC-SHA512, URL generation, x100 amount boundary, signature validation | ✅ |
+| `payment/service.go` | InitiatePayment, display-only ReturnURL, authoritative IPN, status checks | ✅ |
+| `payment/handler.go` | Return/IPN param collection, frontend redirect URL builder | ✅ |
+| `payment/config.go` | VNPay + frontend env config, production HTTPS validation | ✅ |
+| `payment/*_test.go`, `domain/payment_amount_test.go` | Focused amount/config/gateway tests | ✅ |
 
 ### API Routes
 ```
@@ -49,17 +68,33 @@ POST   /v1/api/payments/initiate         (Auth)
 GET    /v1/api/payments/status/:ref      (Auth)
 GET    /v1/api/bookings/:id/payments     (Auth)
 GET    /v1/api/payments/return           (Public - VNPay callback)
+GET    /v1/api/payments/webhook          (Public - VNPay IPN)
 POST   /v1/api/payments/webhook          (Public - VNPay IPN)
 ```
 
 ### Frontend
 | File | Mô tả | Trạng thái |
 |------|--------|------------|
-| `services/paymentService.js` | All payment API calls + helpers | ✅ |
+| `services/paymentService.js` | Payment API calls + helpers using `VITE_API_URL` | ✅ |
 | `pages/payment/PaymentResult.jsx` | VNPay redirect result page | ✅ |
 | `pages/payment/PaymentResult.css` | Styled result page | ✅ |
 | `App.jsx` | Route /payment/result | ✅ |
 | `pages/customer/BookingDetail.jsx` | Payment button integrated | ✅ |
+| `pages/customer/Bookings.jsx` | Payment action routes to booking detail payment flow | ✅ |
+
+### Required Env
+```bash
+# Backend
+VNPAY_ENVIRONMENT=sandbox
+VNPAY_MERCHANT_ID=your-vnpay-tmn-code
+VNPAY_SECRET_KEY=your-vnpay-secret-key
+VNPAY_RETURN_URL=http://localhost:8080/v1/api/payments/return
+VNPAY_IPN_URL=http://localhost:8080/v1/api/payments/webhook
+FRONTEND_BASE_URL=http://localhost:5173
+
+# Frontend
+VITE_API_URL=http://localhost:8080/v1/api
+```
 
 ---
 
@@ -154,12 +189,12 @@ PUT    /v1/api/admin/users/:id/role              (Admin only - handled in logic)
 | `components/common/NotificationBell.jsx` | UI chuông & Dropdown | ✅ |
 | `components/Layout/Header.jsx` | Gắn chuông vào header | ✅ |
 
-## ⬜ PHASE 7: POLISH — CHƯA BẮT ĐẦU
+## ✅ PHASE 7: POLISH — HOÀN THÀNH
 
-- [ ] Avatar upload
-- [ ] Tour gallery (multi-image)
-- [ ] Tour schedules
-- [ ] Booking invoice PDF
+- [x] Avatar upload
+- [x] Tour gallery (multi-image)
+- [x] Tour schedules
+- [x] Booking invoice PDF
 
 ## ⬜ PHASE 8: INFRASTRUCTURE — CHƯA BẮT ĐẦU
 

@@ -15,6 +15,7 @@ type RateLimiter struct {
 	mu       sync.Mutex
 	limit    int
 	window   time.Duration
+	stopCh   chan struct{} // Channel to signal goroutine to stop
 }
 
 // NewRateLimiter - Tạo rate limiter mới
@@ -25,12 +26,18 @@ func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 		requests: make(map[string][]time.Time),
 		limit:    limit,
 		window:   window,
+		stopCh:   make(chan struct{}),
 	}
 
 	// Cleanup expired entries every minute
 	go rl.cleanup()
 
 	return rl
+}
+
+// Stop - Dừng cleanup goroutine khi server shutdown
+func (rl *RateLimiter) Stop() {
+	close(rl.stopCh)
 }
 
 // Allow - Kiểm tra xem IP có được phép request không
@@ -66,30 +73,37 @@ func (rl *RateLimiter) Allow(ip string) bool {
 }
 
 // cleanup - Xóa các entries cũ để tránh memory leak
+// Lắng nghe stopCh để dừng khi server shutdown
 func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		rl.mu.Lock()
-		now := time.Now()
-		windowStart := now.Add(-rl.window)
+	for {
+		select {
+		case <-ticker.C:
+			rl.mu.Lock()
+			now := time.Now()
+			windowStart := now.Add(-rl.window)
 
-		for ip, requests := range rl.requests {
-			validRequests := []time.Time{}
-			for _, reqTime := range requests {
-				if reqTime.After(windowStart) {
-					validRequests = append(validRequests, reqTime)
+			for ip, requests := range rl.requests {
+				validRequests := []time.Time{}
+				for _, reqTime := range requests {
+					if reqTime.After(windowStart) {
+						validRequests = append(validRequests, reqTime)
+					}
+				}
+
+				if len(validRequests) == 0 {
+					delete(rl.requests, ip)
+				} else {
+					rl.requests[ip] = validRequests
 				}
 			}
+			rl.mu.Unlock()
 
-			if len(validRequests) == 0 {
-				delete(rl.requests, ip)
-			} else {
-				rl.requests[ip] = validRequests
-			}
+		case <-rl.stopCh:
+			return
 		}
-		rl.mu.Unlock()
 	}
 }
 
@@ -113,3 +127,4 @@ func RateLimitMiddleware(limiter *RateLimiter) gin.HandlerFunc {
 		c.Next()
 	}
 }
+

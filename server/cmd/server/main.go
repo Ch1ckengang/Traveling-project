@@ -2,9 +2,12 @@ package main
 
 import (
 	"log"
+	"os"
+	"strings"
 	"time"
 	"travel-backend/database"
 	"travel-backend/domain"
+	"travel-backend/internal/ai"
 	"travel-backend/internal/auth"
 	"travel-backend/internal/booking"
 	"travel-backend/internal/coupon"
@@ -14,12 +17,59 @@ import (
 	"travel-backend/internal/review"
 	"travel-backend/internal/shared"
 	"travel-backend/internal/tour"
+	"travel-backend/internal/tracking"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
+
+// validateEnvVars - Kiểm tra các biến môi trường quan trọng trước khi start server
+func validateEnvVars() {
+	hasError := false
+
+	// Check JWT_ACCESS_SECRET
+	jwtAccessSecret := os.Getenv("JWT_ACCESS_SECRET")
+	if jwtAccessSecret == "" {
+		log.Println("❌ ERROR: JWT_ACCESS_SECRET không được để trống!")
+		hasError = true
+	} else if strings.Contains(jwtAccessSecret, "change-me") {
+		log.Println("❌ ERROR: JWT_ACCESS_SECRET đang dùng giá trị mặc định 'change-me-*', không an toàn cho production!")
+		hasError = true
+	}
+
+	// Check JWT_REFRESH_SECRET
+	jwtRefreshSecret := os.Getenv("JWT_REFRESH_SECRET")
+	if jwtRefreshSecret == "" {
+		log.Println("❌ ERROR: JWT_REFRESH_SECRET không được để trống!")
+		hasError = true
+	} else if strings.Contains(jwtRefreshSecret, "change-me") {
+		log.Println("❌ ERROR: JWT_REFRESH_SECRET đang dùng giá trị mặc định 'change-me-*', không an toàn cho production!")
+		hasError = true
+	}
+
+	// Check DB_PASSWORD (warning only, not critical)
+	dbPassword := os.Getenv("DB_PASSWORD")
+	if dbPassword == "123456" {
+		log.Println("⚠️  WARNING: DB_PASSWORD đang dùng giá trị mặc định '123456', không an toàn cho production!")
+	}
+
+	// Check FRONTEND_BASE_URL (info only)
+	frontendURL := os.Getenv("FRONTEND_BASE_URL")
+	if frontendURL == "" {
+		log.Println("ℹ️  INFO: FRONTEND_BASE_URL chưa được set, sử dụng mặc định: http://localhost:5173")
+	}
+
+	// Exit if critical errors found
+	if hasError {
+		log.Println("❌ Server không thể khởi động do lỗi cấu hình biến môi trường!")
+		log.Println("💡 Vui lòng kiểm tra file .env và đảm bảo các biến môi trường quan trọng được cấu hình đúng.")
+		os.Exit(1)
+	}
+
+	log.Println("✅ Kiểm tra biến môi trường thành công")
+}
 
 // main - Khởi tạo và chạy server
 // Sau khi refactor, main.go chỉ còn 3 nhiệm vụ:
@@ -29,6 +79,9 @@ import (
 //
 // Tất cả logic đã được chuyển sang đúng tầng của nó
 func main() {
+	// Kiểm tra biến môi trường
+	validateEnvVars()
+
 	// Kết nối đến PostgreSQL database
 	database.Connect()
 
@@ -36,7 +89,7 @@ func main() {
 	shared.InitEmailService()
 
 	// Auto migrate: tự động tạo/cập nhật cấu trúc bảng
-	if err := database.DB.AutoMigrate(&domain.User{}, &domain.Tour{}, &domain.Booking{}, &domain.Payment{}, &domain.PaymentAuditLog{}, &domain.OTP{}, &domain.Review{}, &domain.Coupon{}, &domain.Notification{}); err != nil {
+	if err := database.DB.AutoMigrate(&domain.User{}, &domain.Tour{}, &domain.TourImage{}, &domain.TourSchedule{}, &domain.Booking{}, &domain.Payment{}, &domain.PaymentAuditLog{}, &domain.OTP{}, &domain.Review{}, &domain.Coupon{}, &domain.Notification{}, &domain.UserActivity{}); err != nil {
 		log.Printf("⚠️ AutoMigrate error: %v", err)
 	} else {
 		log.Println("✅ AutoMigrate completed successfully")
@@ -48,15 +101,23 @@ func main() {
 	// Khởi tạo Gin router
 	r := gin.Default()
 
-	// Cấu hình CORS để cho phép React (frontend) gọi API từ domain khác
+	// Cấu hình CORS - sử dụng FRONTEND_BASE_URL env var
+	frontendURL := os.Getenv("FRONTEND_BASE_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:5173"
+	}
+
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://127.0.0.1:5173"},
+		AllowOrigins:     []string{frontendURL},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Request-ID"},
 		ExposeHeaders:    []string{"Content-Length", "X-Request-ID"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+
+	// Phục vụ các file tĩnh (avatar, etc)
+	r.Static("/uploads", "./uploads")
 
 	// Rate limiting cho auth endpoints (10 requests per minute)
 	authRateLimiter := shared.NewRateLimiter(10, 1*time.Minute)
@@ -75,9 +136,16 @@ func main() {
 		v1.GET("/api/tours/international", tour.GetInternationalToursHandler)
 		v1.GET("/api/tours/search", tour.SearchToursHandler)
 		v1.GET("/api/tours/:id", tour.GetTourByIDHandler)
+		v1.GET("/api/tours/:id/schedules", tour.GetTourSchedules)
 
 		// Review routes (public)
-		v1.GET("/api/tours/:tourId/reviews", review.GetTourReviewsHandler)
+		v1.GET("/api/tours/:id/reviews", review.GetTourReviewsHandler)
+
+		// Tracking routes
+		v1.POST("/api/tracking/log", tracking.LogUserActivity)
+
+		// AI Chat routes
+		v1.POST("/api/ai/chat", ai.ChatHandler)
 
 		// User routes (with rate limiting)
 		authRoutes := v1.Group("/api")
@@ -99,10 +167,12 @@ func main() {
 		{
 			protected.POST("/bookings", booking.CreateBookingHandler)
 			protected.GET("/bookings/code/:code", booking.GetBookingByCodeHandler)
+			protected.GET("/bookings/code/:code/invoice", booking.DownloadInvoiceHandler)
 			protected.GET("/bookings/:id", booking.GetBookingByIDHandler)
 			protected.GET("/users/:id/bookings", booking.GetUserBookingsHandler)
 			protected.PUT("/users/:id/bookings/:bookingId/cancel", booking.CancelBookingHandler)
 			protected.PUT("/users/:id", auth.UpdateUserHandler)
+			protected.POST("/users/avatar", auth.UploadAvatarHandler)
 			protected.GET("/users/me", auth.GetMeHandler)
 			protected.PUT("/users/me/password", auth.ChangePasswordHandler)
 			protected.POST("/logout", auth.LogoutHandler)
@@ -123,10 +193,14 @@ func main() {
 			protected.GET("/notifications", notification.GetNotificationsHandler)
 			protected.PUT("/notifications/:id/read", notification.MarkAsReadHandler)
 			protected.PUT("/notifications/read-all", notification.MarkAllAsReadHandler)
+
+			// AI routes
+			protected.GET("/ai/recommendations", ai.RecommendHandler)
 		}
 
 		// Payment routes (public - VNPay callbacks)
 		v1.GET("/api/payments/return", paymentHandler.PaymentReturnHandler)
+		v1.GET("/api/payments/webhook", paymentHandler.PaymentWebhookHandler)
 		v1.POST("/api/payments/webhook", paymentHandler.PaymentWebhookHandler)
 
 		// Admin routes (yêu cầu Staff hoặc Admin role)
@@ -139,6 +213,11 @@ func main() {
 			admin.PUT("/tours/:id", tour.AdminUpdateTourHandler)
 			admin.DELETE("/tours/:id", tour.AdminDeleteTourHandler)
 			admin.PUT("/tours/:id/toggle", tour.AdminToggleTourHandler)
+
+			// Schedule routes
+			admin.GET("/tours/:id/schedules", tour.AdminGetTourSchedules)
+			admin.POST("/tours/:id/schedules", tour.AdminCreateTourSchedule)
+			admin.DELETE("/tours/:id/schedules/:scheduleId", tour.AdminDeleteTourSchedule)
 
 			// Admin Dashboard
 			admin.GET("/dashboard/summary", dashboard.AdminGetDashboardSummaryHandler)
@@ -210,10 +289,19 @@ func seedTours() {
 	var tourCount int64
 	database.DB.Model(&domain.Tour{}).Count(&tourCount)
 	if tourCount > 0 {
-		// Migration: cập nhật PriceAmount cho tours cũ nếu chưa có
-		database.DB.Model(&domain.Tour{}).Where("price_amount = 0 OR price_amount IS NULL").Updates(map[string]interface{}{
-			"is_active": true,
-		})
+		// Migration: cập nhật PriceAmount cho tours cũ có price_amount = 0
+		// Parse Price string (e.g. "5.000.000đ") → PriceAmount int64 (5000000)
+		var toursToFix []domain.Tour
+		database.DB.Where("price_amount = 0 OR price_amount IS NULL").Find(&toursToFix)
+		for _, t := range toursToFix {
+			if t.Price != "" {
+				parsed := domain.ParsePriceVND(t.Price)
+				if parsed > 0 {
+					database.DB.Model(&t).Update("price_amount", parsed)
+					log.Printf("  ✅ Fixed tour #%d (%s): price_amount = %d (from \"%s\")", t.ID, t.Name, parsed, t.Price)
+				}
+			}
+		}
 		return
 	}
 

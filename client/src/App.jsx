@@ -25,6 +25,7 @@ import AdminCouponsPage from './pages/admin/Coupons';
 import AdminReviewsPage from './pages/admin/Reviews';
 import AdminReportsPage from './pages/admin/Reports';
 import PaymentResultPage from './pages/payment/PaymentResult';
+import ChatbotWidget from './components/AI/ChatbotWidget';
 import './App.css';
 
 const AccountPasswordPage = () => <div>AccountPasswordPage</div>;
@@ -90,6 +91,7 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <AppRoutes />
+          <ChatbotWidget />
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

@@ -72,7 +72,7 @@ func FindToursByCategory(category string) ([]domain.Tour, error) {
 // FindTourByID - Tìm tour theo id (uint)
 func FindTourByID(id uint) (*domain.Tour, error) {
 	var tour domain.Tour
-	if err := database.DB.First(&tour, id).Error; err != nil {
+	if err := database.DB.Preload("Images").First(&tour, id).Error; err != nil {
 		return nil, err
 	}
 
@@ -86,7 +86,7 @@ func FindTourByID(id uint) (*domain.Tour, error) {
 // FindTourByIDString - Tìm tour theo id (string từ URL param)
 func FindTourByIDString(id string) (*domain.Tour, error) {
 	var tour domain.Tour
-	if err := database.DB.First(&tour, id).Error; err != nil {
+	if err := database.DB.Preload("Images").First(&tour, id).Error; err != nil {
 		return nil, err
 	}
 
@@ -163,7 +163,37 @@ func DecreaseTourRemainingSlots(tourID uint, seats int) error {
 		}
 
 		tour.RemainingSlots = remaining - seats
-		return tx.Save(&tour).Error
+		return tx.Model(&tour).Update("remaining_slots", tour.RemainingSlots).Error
+	})
+}
+
+// FindTourScheduleByID
+func FindTourScheduleByID(id uint) (*domain.TourSchedule, error) {
+	var schedule domain.TourSchedule
+	if err := database.DB.First(&schedule, id).Error; err != nil {
+		return nil, err
+	}
+	return &schedule, nil
+}
+
+// DecreaseTourScheduleRemainingSlots
+func DecreaseTourScheduleRemainingSlots(scheduleID uint, seats int) error {
+	if seats <= 0 {
+		return nil
+	}
+
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		var schedule domain.TourSchedule
+		if err := tx.First(&schedule, scheduleID).Error; err != nil {
+			return err
+		}
+
+		if schedule.RemainingSlots < seats {
+			return gorm.ErrInvalidData
+		}
+
+		schedule.RemainingSlots -= seats
+		return tx.Save(&schedule).Error
 	})
 }
 

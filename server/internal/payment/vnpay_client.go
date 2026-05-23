@@ -22,6 +22,11 @@ func NewVNPayClient(config *VNPayConfig) *VNPayClient {
 	return &VNPayClient{config: config}
 }
 
+// ProviderName returns the gateway provider identifier stored with payments.
+func (c *VNPayClient) ProviderName() string {
+	return "vnpay"
+}
+
 // GeneratePaymentURL - Tạo URL thanh toán VNPay để redirect user
 func (c *VNPayClient) GeneratePaymentURL(req *domain.VNPayPaymentRequest) (string, error) {
 	if req == nil {
@@ -41,7 +46,7 @@ func (c *VNPayClient) GeneratePaymentURL(req *domain.VNPayPaymentRequest) (strin
 		"vnp_TxnRef":     req.TransactionReference,
 		"vnp_OrderInfo":  req.OrderInfo,
 		"vnp_OrderType":  "other",
-		"vnp_Amount":     fmt.Sprintf("%d", req.Amount*100), // VNPay yêu cầu nhân 100
+		"vnp_Amount":     fmt.Sprintf("%d", req.Amount*100), // VNPay requires VND amount x 100
 		"vnp_ReturnUrl":  req.ReturnURL,
 		"vnp_IpAddr":     req.ClientIP,
 		"vnp_CreateDate": createDate,
@@ -84,7 +89,7 @@ func (c *VNPayClient) buildHashData(params map[string]string) string {
 	// Build hash data string
 	var parts []string
 	for _, k := range keys {
-		value := url.QueryEscape(params[k])
+		value := params[k]
 		parts = append(parts, fmt.Sprintf("%s=%s", k, value))
 	}
 
@@ -103,4 +108,9 @@ func (c *VNPayClient) ParseVNPayResponseCode(code string) (bool, string) {
 	isSuccess := code == "00"
 	message := domain.GetVNPayErrorMessage(code)
 	return isSuccess, message
+}
+
+// ParseResponseCode implements PaymentGateway.
+func (c *VNPayClient) ParseResponseCode(code string) (bool, string) {
+	return c.ParseVNPayResponseCode(code)
 }
