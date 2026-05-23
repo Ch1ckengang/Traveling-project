@@ -776,88 +776,42 @@ Acceptance Criteria:
 
 #### 3.3.1. Context Diagram (Level 0)
 
-```
-                    ┌─────────────┐
-                    │   Khách     │
-                    │   Hàng      │
-                    └──────┬──────┘
-                           │
-        ┌──────────────────┼──────────────────┐
-        │                  │                  │
-   Đăng ký/           Tìm kiếm/          Thanh toán/
-   Đăng nhập          Đặt tour           Xem booking
-        │                  │                  │
-        ▼                  ▼                  ▼
-    ┌───────────────────────────────────────────┐
-    │                                           │
-    │         HỆ THỐNG TRAVELING                │
-    │                                           │
-    └───────────────┬───────────────────────────┘
-                    │
-        ┌───────────┼───────────┐
-        │           │           │
-        ▼           ▼           ▼
-   ┌────────┐  ┌────────┐  ┌────────┐
-   │ Staff  │  │ Admin  │  │ VNPay  │
-   └────────┘  └────────┘  └────────┘
+```mermaid
+flowchart TD
+    Guest((Khách Hàng)) -->|Đăng ký/Đăng nhập| System[HỆ THỐNG TRAVELING]
+    Guest -->|Tìm kiếm/Đặt tour| System
+    Guest -->|Thanh toán/Xem booking| System
+    
+    System --> Staff[Staff]
+    System --> Admin[Admin]
+    System --> VNPay[VNPay]
 ```
 
 #### 3.3.2. Data Flow Diagram (Level 1)
 
-```
-┌──────────────────────────────────────────────────────────┐
-│              DATA FLOW DIAGRAM - LEVEL 1                 │
-└──────────────────────────────────────────────────────────┘
-
-[Khách hàng]
-     │
-     │ (1) Đăng ký/Đăng nhập
-     ▼
-┌─────────────────┐
-│  Auth Module    │──► (User data) ──► [User DB]
-└─────────────────┘
-     │
-     │ (JWT Token)
-     ▼
-[Khách hàng]
-     │
-     │ (2) Tìm kiếm tour
-     ▼
-┌─────────────────┐
-│  Tour Module    │◄─── (Tour data) ◄─── [Tour DB]
-└─────────────────┘
-     │
-     │ (Tour list)
-     ▼
-[Khách hàng]
-     │
-     │ (3) Tạo booking
-     ▼
-┌─────────────────┐
-│ Booking Module  │──► (Booking data) ──► [Booking DB]
-└─────────────────┘
-     │
-     │ (Booking created)
-     ▼
-[Khách hàng]
-     │
-     │ (4) Thanh toán
-     ▼
-┌─────────────────┐
-│ Payment Module  │◄──► (Payment request) ◄──► [VNPay]
-└─────────────────┘
-     │
-     │ (5) IPN webhook
-     ▼
-┌─────────────────┐
-│ Payment Module  │──► (Update status) ──► [Booking DB]
-└─────────────────┘
-     │
-     │ (6) Send email
-     ▼
-┌─────────────────┐
-│Notification Mod │──► (Email) ──► [SMTP Server]
-└─────────────────┘
+```mermaid
+flowchart TD
+    Customer((Khách hàng))
+    
+    Customer -->|"(1) Đăng ký/Đăng nhập"| AuthMod[Auth Module]
+    AuthMod -->|User data| UserDB[(User DB)]
+    AuthMod -->|JWT Token| Customer
+    
+    Customer -->|"(2) Tìm kiếm tour"| TourMod[Tour Module]
+    TourDB[(Tour DB)] -->|Tour data| TourMod
+    TourMod -->|Tour list| Customer
+    
+    Customer -->|"(3) Tạo booking"| BookingMod[Booking Module]
+    BookingMod -->|Booking data| BookingDB[(Booking DB)]
+    BookingMod -->|Booking created| Customer
+    
+    Customer -->|"(4) Thanh toán"| PaymentMod[Payment Module]
+    PaymentMod <-->|Payment request| VNPay[VNPay]
+    VNPay -->|"(5) IPN webhook"| PaymentMod
+    PaymentMod -->|Update status| BookingDB
+    
+    PaymentMod -->|"(6) Send email request"| NotifMod[Notification Mod]
+    NotifMod -->|Email| SMTPServer[SMTP Server]
 ```
 
 ### 3.4. Phân Tích Actors (Actor Analysis)
@@ -944,720 +898,255 @@ Acceptance Criteria:
 
 #### 3.6.1. User State Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│              USER STATE DIAGRAM                         │
-└─────────────────────────────────────────────────────────┘
-
-                    ┌──────────────┐
-                    │  Registered  │
-                    │ (unverified) │
-                    └──────┬───────┘
-                           │
-                    verify_email()
-                           │
-                           ▼
-                    ┌──────────────┐
-              ┌────►│   Active     │◄────┐
-              │     │ (verified)   │     │
-              │     └──────┬───────┘     │
-              │            │             │
-    activate()│            │lock()       │unlock()
-              │            ▼             │
-              │     ┌──────────────┐     │
-              └─────│   Locked     │─────┘
-                    │ (suspended)  │
-                    └──────────────┘
-                           │
-                    delete()
-                           │
-                           ▼
-                    ┌──────────────┐
-                    │   Deleted    │
-                    │ (soft delete)│
-                    └──────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> Registered: Register
+    Registered --> Active: verify_email()
+    Active --> Locked: lock()
+    Locked --> Active: unlock()
+    Active --> Deleted: delete()
+    Locked --> Deleted: delete()
+    Deleted --> [*]
 ```
 
 #### 3.6.2. Booking State Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│            BOOKING STATE DIAGRAM                        │
-└─────────────────────────────────────────────────────────┘
-
-                    ┌──────────────┐
-                    │   Created    │
-                    │  (booked)    │
-                    └──────┬───────┘
-                           │
-                    payment_initiated()
-                           │
-                           ▼
-                    ┌──────────────┐
-                    │  Processing  │
-                    │  (payment)   │
-                    └──────┬───────┘
-                           │
-            ┌──────────────┼──────────────┐
-            │              │              │
-    payment_success()  payment_failed() cancel()
-            │              │              │
-            ▼              ▼              ▼
-     ┌──────────┐   ┌──────────┐   ┌──────────┐
-     │Confirmed │   │  Booked  │   │Cancelled │
-     │  (paid)  │   │ (unpaid) │   │          │
-     └────┬─────┘   └────┬─────┘   └──────────┘
-          │              │
-          │         cancel()
-          │              │
-          │              ▼
-          │         ┌──────────┐
-          │         │Cancelled │
-          │         └──────────┘
-          │
-    tour_completed()
-          │
-          ▼
-     ┌──────────┐
-     │Completed │
-     │          │
-     └──────────┘
-          │
-    write_review()
-          │
-          ▼
-     ┌──────────┐
-     │Reviewed  │
-     └──────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> Created: Book tour
+    Created --> Processing: payment_initiated()
+    Processing --> Confirmed: payment_success()
+    Processing --> Booked_Unpaid: payment_failed()
+    Processing --> Cancelled: cancel()
+    
+    Confirmed --> Cancelled: cancel()
+    Booked_Unpaid --> Cancelled: cancel()
+    
+    Confirmed --> Completed: tour_completed()
+    Completed --> Reviewed: write_review()
+    
+    Reviewed --> [*]
+    Cancelled --> [*]
 ```
 
 #### 3.6.3. Payment State Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│            PAYMENT STATE DIAGRAM                        │
-└─────────────────────────────────────────────────────────┘
-
-                    ┌──────────────┐
-                    │   Pending    │
-                    │ (initiated)  │
-                    └──────┬───────┘
-                           │
-                    redirect_to_vnpay()
-                           │
-                           ▼
-                    ┌──────────────┐
-                    │  Processing  │
-                    │  (at VNPay)  │
-                    └──────┬───────┘
-                           │
-            ┌──────────────┼──────────────┐
-            │              │              │
-    vnpay_success()  vnpay_failed()  timeout()
-            │              │              │
-            ▼              ▼              ▼
-     ┌──────────┐   ┌──────────┐   ┌──────────┐
-     │ Success  │   │  Failed  │   │ Expired  │
-     │          │   │          │   │          │
-     └────┬─────┘   └────┬─────┘   └────┬─────┘
-          │              │              │
-          │         retry()         retry()
-          │              │              │
-          │              └──────┬───────┘
-          │                     │
-          │                     ▼
-          │              ┌──────────────┐
-          │              │   Pending    │
-          │              │  (retry)     │
-          │              └──────────────┘
-          │
-    refund_requested()
-          │
-          ▼
-     ┌──────────┐
-     │ Refunded │
-     └──────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: Initiate
+    Pending --> Processing: redirect_to_vnpay()
+    Processing --> Success: vnpay_success()
+    Processing --> Failed: vnpay_failed()
+    Processing --> Expired: timeout()
+    
+    Failed --> Pending: retry()
+    Expired --> Pending: retry()
+    
+    Success --> Refunded: refund_requested()
+    
+    Refunded --> [*]
 ```
 
 #### 3.6.4. Review State Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│             REVIEW STATE DIAGRAM                        │
-└─────────────────────────────────────────────────────────┘
-
-                    ┌──────────────┐
-                    │   Created    │
-                    │  (pending)   │
-                    └──────┬───────┘
-                           │
-            ┌──────────────┼──────────────┐
-            │              │              │
-    admin_approve()  admin_reject()  edit_within_7days()
-            │              │              │
-            ▼              ▼              │
-     ┌──────────┐   ┌──────────┐         │
-     │Published │   │ Rejected │         │
-     │ (visible)│   │ (hidden) │         │
-     └────┬─────┘   └────┬─────┘         │
-          │              │               │
-          │         admin_approve()      │
-          │              │               │
-          │              └───────┐       │
-          │                      │       │
-          ▼                      ▼       ▼
-     ┌──────────┐         ┌──────────────┐
-     │ Active   │◄────────│   Updated    │
-     │ (shown)  │         │  (pending)   │
-     └────┬─────┘         └──────────────┘
-          │
-    admin_hide()
-          │
-          ▼
-     ┌──────────┐
-     │  Hidden  │
-     │          │
-     └────┬─────┘
-          │
-    admin_unhide()
-          │
-          └──────────────┐
-                         │
-                         ▼
-                  ┌──────────┐
-                  │ Active   │
-                  └──────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> Created_Pending: Write Review
+    Created_Pending --> Published: admin_approve()
+    Created_Pending --> Rejected: admin_reject()
+    Created_Pending --> Updated_Pending: edit_within_7days()
+    
+    Rejected --> Published: admin_approve()
+    Updated_Pending --> Active: admin_approve()
+    Published --> Hidden: admin_hide()
+    Hidden --> Active: admin_unhide()
+    
+    Active --> [*]
 ```
 
 ### 3.7. Activity Diagrams (Biểu Đồ Hoạt Động)
 
 #### 3.7.1. User Registration Activity Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│        USER REGISTRATION ACTIVITY DIAGRAM               │
-└─────────────────────────────────────────────────────────┘
-
-        (Start)
-           │
-           ▼
-    ┌─────────────┐
-    │ Enter email │
-    │  password   │
-    │    name     │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │  Validate   │
-    │   inputs    │
-    └──────┬──────┘
-           │
-           ▼
-    ◇─────────────◇
-    │ Valid?      │
-    └──────┬──────┘
-           │
-      ┌────┴────┐
-      │         │
-     NO        YES
-      │         │
-      ▼         ▼
-  ┌───────┐  ┌─────────────┐
-  │ Show  │  │ Check email │
-  │ error │  │  exists?    │
-  └───┬───┘  └──────┬──────┘
-      │             │
-      │        ┌────┴────┐
-      │        │         │
-      │       YES       NO
-      │        │         │
-      │        ▼         ▼
-      │    ┌───────┐  ┌─────────────┐
-      │    │ Show  │  │ Hash        │
-      │    │ error │  │ password    │
-      │    └───┬───┘  └──────┬──────┘
-      │        │             │
-      │        │             ▼
-      │        │      ┌─────────────┐
-      │        │      │ Create user │
-      │        │      │   record    │
-      │        │      └──────┬──────┘
-      │        │             │
-      │        │             ▼
-      │        │      ┌─────────────┐
-      │        │      │ Generate    │
-      │        │      │    OTP      │
-      │        │      └──────┬──────┘
-      │        │             │
-      │        │             ▼
-      │        │      ┌─────────────┐
-      │        │      │ Send OTP    │
-      │        │      │   email     │
-      │        │      └──────┬──────┘
-      │        │             │
-      │        │             ▼
-      │        │      ┌─────────────┐
-      │        │      │ Show success│
-      │        │      │  message    │
-      │        │      └──────┬──────┘
-      │        │             │
-      └────────┴─────────────┘
-                     │
-                     ▼
-                  (End)
+```mermaid
+flowchart TD
+    Start((Start)) --> EnterData[Enter email, password, name]
+    EnterData --> Validate[Validate inputs]
+    Validate --> IsValid{Valid?}
+    
+    IsValid -- NO --> ShowError1[Show error]
+    ShowError1 --> End((End))
+    
+    IsValid -- YES --> CheckEmail[Check email exists?]
+    CheckEmail --> EmailExists{Exists?}
+    
+    EmailExists -- YES --> ShowError2[Show error]
+    ShowError2 --> End
+    
+    EmailExists -- NO --> HashPW[Hash password]
+    HashPW --> CreateUser[Create user record]
+    CreateUser --> GenOTP[Generate OTP]
+    GenOTP --> SendOTP[Send OTP email]
+    SendOTP --> ShowSuccess[Show success message]
+    ShowSuccess --> End
 ```
 
 #### 3.7.2. Booking Creation Activity Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│       BOOKING CREATION ACTIVITY DIAGRAM                 │
-└─────────────────────────────────────────────────────────┘
-
-        (Start)
-           │
-           ▼
-    ┌─────────────┐
-    │ Select tour │
-    │  and date   │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │ Enter guest │
-    │   details   │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │ Enter adult │
-    │child/infant │
-    │   counts    │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │ Calculate   │
-    │total amount │
-    └──────┬──────┘
-           │
-           ▼
-    ◇─────────────◇
-    │ Has coupon? │
-    └──────┬──────┘
-           │
-      ┌────┴────┐
-      │         │
-     NO        YES
-      │         │
-      │         ▼
-      │  ┌─────────────┐
-      │  │  Validate   │
-      │  │   coupon    │
-      │  └──────┬──────┘
-      │         │
-      │    ◇────┴────◇
-      │    │ Valid?  │
-      │    └────┬────┘
-      │         │
-      │    ┌────┴────┐
-      │    │         │
-      │   NO        YES
-      │    │         │
-      │    ▼         ▼
-      │ ┌──────┐ ┌─────────┐
-      │ │Show  │ │Calculate│
-      │ │error │ │discount │
-      │ └──┬───┘ └────┬────┘
-      │    │          │
-      └────┴──────────┘
-                │
-                ▼
-         ┌─────────────┐
-         │ Start DB    │
-         │ transaction │
-         └──────┬──────┘
-                │
-                ▼
-         ┌─────────────┐
-         │ Lock tour   │
-         │    row      │
-         └──────┬──────┘
-                │
-                ▼
-         ◇─────────────◇
-         │ Slots       │
-         │ available?  │
-         └──────┬──────┘
-                │
-           ┌────┴────┐
-           │         │
-          NO        YES
-           │         │
-           ▼         ▼
-      ┌────────┐ ┌─────────────┐
-      │Rollback│ │Create       │
-      │ & error│ │booking      │
-      └───┬────┘ └──────┬──────┘
-          │             │
-          │             ▼
-          │      ┌─────────────┐
-          │      │ Decrease    │
-          │      │   slots     │
-          │      └──────┬──────┘
-          │             │
-          │             ▼
-          │      ┌─────────────┐
-          │      │ Increment   │
-          │      │coupon usage │
-          │      └──────┬──────┘
-          │             │
-          │             ▼
-          │      ┌─────────────┐
-          │      │  Commit     │
-          │      │transaction  │
-          │      └──────┬──────┘
-          │             │
-          │             ▼
-          │      ┌─────────────┐
-          │      │ Send        │
-          │      │notification │
-          │      └──────┬──────┘
-          │             │
-          └─────────────┘
-                │
-                ▼
-             (End)
+```mermaid
+flowchart TD
+    Start((Start)) --> SelectTour[Select tour and date]
+    SelectTour --> EnterGuests[Enter guest details]
+    EnterGuests --> EnterCounts[Enter adult/child/infant counts]
+    EnterCounts --> CalcTotal[Calculate total amount]
+    CalcTotal --> HasCoupon{Has coupon?}
+    
+    HasCoupon -- YES --> ValidateCoupon[Validate coupon]
+    ValidateCoupon --> IsCouponValid{Valid?}
+    IsCouponValid -- NO --> ShowError[Show error] --> End((End))
+    IsCouponValid -- YES --> CalcDiscount[Calculate discount]
+    CalcDiscount --> StartTx
+    
+    HasCoupon -- NO --> StartTx[Start DB transaction]
+    StartTx --> LockRow[Lock tour row]
+    LockRow --> CheckSlots{Slots available?}
+    
+    CheckSlots -- NO --> Rollback[Rollback & error] --> End
+    
+    CheckSlots -- YES --> CreateBooking[Create booking]
+    CreateBooking --> DecreaseSlots[Decrease slots]
+    DecreaseSlots --> IncrCoupon[Increment coupon usage]
+    IncrCoupon --> CommitTx[Commit transaction]
+    CommitTx --> SendNotif[Send notification async]
+    SendNotif --> End
 ```
 
 #### 3.7.3. Payment Processing Activity Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│       PAYMENT PROCESSING ACTIVITY DIAGRAM               │
-└─────────────────────────────────────────────────────────┘
-
-        (Start)
-           │
-           ▼
-    ┌─────────────┐
-    │ User clicks │
-    │  "Pay Now"  │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │ Create      │
-    │ payment     │
-    │ session     │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │ Generate    │
-    │ VNPay URL   │
-    │ + signature │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │ Redirect to │
-    │   VNPay     │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │ User pays   │
-    │  at VNPay   │
-    └──────┬──────┘
-           │
-      ┌────┴────┐
-      │         │
-   Success    Failed
-      │         │
-      ▼         ▼
-┌──────────┐ ┌──────────┐
-│VNPay IPN │ │VNPay IPN │
-│ webhook  │ │ webhook  │
-└────┬─────┘ └────┬─────┘
-     │            │
-     ▼            ▼
-┌──────────┐ ┌──────────┐
-│Validate  │ │Validate  │
-│signature │ │signature │
-└────┬─────┘ └────┬─────┘
-     │            │
-     ▼            ▼
-◇────────◇   ◇────────◇
-│Valid?  │   │Valid?  │
-└────┬───┘   └────┬───┘
-     │            │
-    YES          YES
-     │            │
-     ▼            ▼
-┌──────────┐ ┌──────────┐
-│Update    │ │Update    │
-│booking   │ │payment   │
-│confirmed │ │failed    │
-└────┬─────┘ └────┬─────┘
-     │            │
-     ▼            ▼
-┌──────────┐ ┌──────────┐
-│Update    │ │Log error │
-│payment   │ │          │
-│success   │ └────┬─────┘
-└────┬─────┘      │
-     │            │
-     ▼            ▼
-┌──────────┐ ┌──────────┐
-│Send      │ │Send      │
-│success   │ │failure   │
-│email     │ │email     │
-└────┬─────┘ └────┬─────┘
-     │            │
-     ▼            ▼
-┌──────────┐ ┌──────────┐
-│Redirect  │ │Redirect  │
-│to success│ │to retry  │
-│page      │ │page      │
-└────┬─────┘ └────┬─────┘
-     │            │
-     └─────┬──────┘
-           │
-           ▼
-        (End)
+```mermaid
+flowchart TD
+    Start((Start)) --> ClickPay[User clicks 'Pay Now']
+    ClickPay --> CreateSession[Create payment session]
+    CreateSession --> GenURL[Generate VNPay URL + signature]
+    GenURL --> Redirect[Redirect to VNPay]
+    Redirect --> UserPays[User pays at VNPay]
+    
+    UserPays --> VNPayReturn[Redirect to return page]
+    
+    UserPays -.->|IPN Webhook| Webhook[VNPay IPN webhook]
+    Webhook --> ValidateSig[Validate signature]
+    ValidateSig --> IsSigValid{Valid?}
+    
+    IsSigValid -- YES --> UpdateStatus
+    
+    UpdateStatus{Payment Successful?}
+    UpdateStatus -- YES --> UpdateConfirmed[Update booking: confirmed, payment: success]
+    UpdateStatus -- NO --> UpdateFailed[Update booking: failed, payment: failed]
+    
+    UpdateConfirmed --> SendSuccessEmail[Send success email]
+    SendSuccessEmail --> End((End))
+    
+    UpdateFailed --> SendFailEmail[Send failure email]
+    SendFailEmail --> End
 ```
 
 ### 3.8. Sequence Diagrams (Biểu Đồ Tuần Tự)
 
 #### 3.8.1. User Login Sequence Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│          USER LOGIN SEQUENCE DIAGRAM                    │
-└─────────────────────────────────────────────────────────┘
-
-User        Frontend      Backend       Database      JWT
- │              │             │             │          │
- │ Enter email  │             │             │          │
- │ & password   │             │             │          │
- ├─────────────►│             │             │          │
- │              │             │             │          │
- │              │ POST /login │             │          │
- │              ├────────────►│             │          │
- │              │             │             │          │
- │              │             │ Query user  │          │
- │              │             │ by email    │          │
- │              │             ├────────────►│          │
- │              │             │             │          │
- │              │             │◄────────────┤          │
- │              │             │ User data   │          │
- │              │             │             │          │
- │              │             │ Verify      │          │
- │              │             │ password    │          │
- │              │             │ (bcrypt)    │          │
- │              │             │             │          │
- │              │             │ Generate    │          │
- │              │             │ JWT tokens  │          │
- │              │             ├────────────────────────►│
- │              │             │             │          │
- │              │             │◄────────────────────────┤
- │              │             │ Access + Refresh tokens│
- │              │             │             │          │
- │              │◄────────────┤             │          │
- │              │ 200 OK      │             │          │
- │              │ {tokens}    │             │          │
- │◄─────────────┤             │             │          │
- │ Login success│             │             │          │
- │              │             │             │          │
- │ Store tokens │             │             │          │
- │ in localStorage            │             │          │
- │              │             │             │          │
+```mermaid
+sequenceDiagram
+    actor User
+    participant Frontend
+    participant Backend
+    participant Database
+    
+    User->>Frontend: Enter email & password
+    Frontend->>Backend: POST /login
+    Backend->>Database: Query user by email
+    Database-->>Backend: User data
+    Backend->>Backend: Verify password (bcrypt)
+    Backend->>Backend: Generate JWT tokens
+    Backend-->>Frontend: 200 OK {tokens}
+    Frontend-->>User: Login success
+    Frontend->>Frontend: Store tokens in localStorage
 ```
 
 #### 3.8.2. Create Booking Sequence Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│        CREATE BOOKING SEQUENCE DIAGRAM                  │
-└─────────────────────────────────────────────────────────┘
-
-User    Frontend  Backend   TourRepo  BookingRepo  CouponRepo  NotifSvc
- │         │         │          │          │           │          │
- │ Fill    │         │          │          │           │          │
- │ booking │         │          │          │           │          │
- │ form    │         │          │          │           │          │
- ├────────►│         │          │          │           │          │
- │         │         │          │          │           │          │
- │         │ POST    │          │          │           │          │
- │         │/bookings│          │          │           │          │
- │         ├────────►│          │          │           │          │
- │         │         │          │          │           │          │
- │         │         │ Get tour │          │           │          │
- │         │         ├─────────►│          │           │          │
- │         │         │          │          │           │          │
- │         │         │◄─────────┤          │           │          │
- │         │         │ Tour data│          │           │          │
- │         │         │          │          │           │          │
- │         │         │ Validate │          │           │          │
- │         │         │ coupon   │          │           │          │
- │         │         ├──────────────────────────────────►│          │
- │         │         │          │          │           │          │
- │         │         │◄──────────────────────────────────┤          │
- │         │         │ Coupon valid + discount           │          │
- │         │         │          │          │           │          │
- │         │         │ Start DB │          │           │          │
- │         │         │ transaction         │           │          │
- │         │         │          │          │           │          │
- │         │         │ Lock tour│          │           │          │
- │         │         │ row      │          │           │          │
- │         │         ├─────────►│          │           │          │
- │         │         │          │          │           │          │
- │         │         │ Check    │          │           │          │
- │         │         │ slots    │          │           │          │
- │         │         │          │          │           │          │
- │         │         │ Create   │          │           │          │
- │         │         │ booking  │          │           │          │
- │         │         ├──────────────────────►          │          │
- │         │         │          │          │           │          │
- │         │         │ Decrease │          │           │          │
- │         │         │ slots    │          │           │          │
- │         │         ├─────────►│          │           │          │
- │         │         │          │          │           │          │
- │         │         │ Increment│          │           │          │
- │         │         │ coupon   │          │           │          │
- │         │         ├──────────────────────────────────►│          │
- │         │         │          │          │           │          │
- │         │         │ Commit   │          │           │          │
- │         │         │ transaction         │           │          │
- │         │         │          │          │           │          │
- │         │         │ Send     │          │           │          │
- │         │         │ notification        │           │          │
- │         │         ├────────────────────────────────────────────►│
- │         │         │          │          │           │          │
- │         │◄────────┤          │          │           │          │
- │         │ 201     │          │          │           │          │
- │         │ Created │          │          │           │          │
- │◄────────┤         │          │          │           │          │
- │ Booking │         │          │          │           │          │
- │ created │         │          │          │           │          │
- │         │         │          │          │           │          │
+```mermaid
+sequenceDiagram
+    actor User
+    participant Frontend
+    participant Backend
+    participant TourRepo
+    participant CouponRepo
+    participant DB
+    participant NotifSvc
+    
+    User->>Frontend: Fill booking form
+    Frontend->>Backend: POST /bookings
+    Backend->>TourRepo: Get tour
+    TourRepo-->>Backend: Tour data
+    Backend->>CouponRepo: Validate coupon
+    CouponRepo-->>Backend: Coupon valid + discount
+    Backend->>DB: Start DB transaction
+    Backend->>DB: Lock tour row (SELECT FOR UPDATE)
+    Backend->>Backend: Check slots
+    Backend->>DB: Create booking
+    Backend->>DB: Decrease slots
+    Backend->>DB: Increment coupon usage
+    Backend->>DB: Commit transaction
+    Backend->>NotifSvc: Send notification (async)
+    Backend-->>Frontend: 201 Created
+    Frontend-->>User: Booking created
 ```
 
 #### 3.8.3. Payment Processing Sequence Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│       PAYMENT PROCESSING SEQUENCE DIAGRAM               │
-└─────────────────────────────────────────────────────────┘
-
-User  Frontend  Backend  PaymentSvc  VNPay  BookingRepo  NotifSvc
- │       │         │         │         │         │          │
- │ Click │         │         │         │         │          │
- │ Pay   │         │         │         │         │          │
- ├──────►│         │         │         │         │          │
- │       │         │         │         │         │          │
- │       │ POST    │         │         │         │          │
- │       │/payments│         │         │         │          │
- │       │/initiate│         │         │         │          │
- │       ├────────►│         │         │         │          │
- │       │         │         │         │         │          │
- │       │         │ Create  │         │         │          │
- │       │         │ payment │         │         │          │
- │       │         │ session │         │         │          │
- │       │         ├────────►│         │         │          │
- │       │         │         │         │         │          │
- │       │         │         │ Generate│         │          │
- │       │         │         │ VNPay   │         │          │
- │       │         │         │ URL +   │         │          │
- │       │         │         │signature│         │          │
- │       │         │         │         │         │          │
- │       │◄────────┤         │         │         │          │
- │       │ Payment │         │         │         │          │
- │       │ URL     │         │         │         │          │
- │◄──────┤         │         │         │         │          │
- │       │         │         │         │         │          │
- │ Redirect to VNPay         │         │         │          │
- ├───────────────────────────────────►│         │          │
- │       │         │         │         │         │          │
- │ Pay at VNPay              │         │         │          │
- │       │         │         │         │         │          │
- │       │         │         │         │         │          │
- │       │         │ IPN     │         │         │          │
- │       │         │ Webhook │         │         │          │
- │       │         │◄────────────────────────────┤          │
- │       │         │         │         │         │          │
- │       │         │ Validate│         │         │          │
- │       │         │ signature         │         │          │
- │       │         ├────────►│         │         │          │
- │       │         │         │         │         │          │
- │       │         │         │ Verify  │         │          │
- │       │         │         │ HMAC    │         │          │
- │       │         │         │         │         │          │
- │       │         │ Update  │         │         │          │
- │       │         │ booking │         │         │          │
- │       │         │ status  │         │         │          │
- │       │         ├─────────────────────────────►          │
- │       │         │         │         │         │          │
- │       │         │ Send    │         │         │          │
- │       │         │ email   │         │         │          │
- │       │         ├────────────────────────────────────────►│
- │       │         │         │         │         │          │
- │       │         │ Return  │         │         │          │
- │       │         │ 200 OK  │         │         │          │
- │       │         ├─────────────────────────────►          │
- │       │         │         │         │         │          │
- │       │         │         │ Redirect│         │          │
- │       │         │         │ user    │         │          │
- │◄──────────────────────────────────────────────┤          │
- │       │         │         │         │         │          │
- │ View  │         │         │         │         │          │
- │ result│         │         │         │         │          │
- │       │         │         │         │         │          │
+```mermaid
+sequenceDiagram
+    actor User
+    participant Frontend
+    participant Backend
+    participant VNPay
+    participant DB
+    participant NotifSvc
+    
+    User->>Frontend: Click Pay
+    Frontend->>Backend: POST /payments/initiate
+    Backend->>DB: Create payment session
+    Backend->>Backend: Generate VNPay URL + signature
+    Backend-->>Frontend: Payment URL
+    Frontend->>VNPay: Redirect to VNPay
+    User->>VNPay: Pay at VNPay
+    VNPay-->>Backend: IPN Webhook (server-to-server)
+    Backend->>Backend: Validate signature (Verify HMAC)
+    Backend->>DB: Update payment status & booking status
+    Backend->>NotifSvc: Send email & notification
+    Backend-->>VNPay: Return 200 OK
+    VNPay-->>Frontend: Redirect user (ReturnURL)
+    Frontend-->>User: View result
 ```
 
 #### 3.8.4. Review Submission Sequence Diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│       REVIEW SUBMISSION SEQUENCE DIAGRAM                │
-└─────────────────────────────────────────────────────────┘
-
-User  Frontend  Backend  ReviewRepo  TourRepo  NotifSvc
- │       │         │         │          │         │
- │ Write │         │         │          │         │
- │ review│         │         │          │         │
- ├──────►│         │         │          │         │
- │       │         │         │          │         │
- │       │ POST    │         │          │         │
- │       │/reviews │         │          │         │
- │       ├────────►│         │          │         │
- │       │         │         │          │         │
- │       │         │ Validate│          │         │
- │       │         │ booking │          │         │
- │       │         │ completed          │         │
- │       │         │         │          │         │
- │       │         │ Create  │          │         │
- │       │         │ review  │          │         │
- │       │         ├────────►│          │         │
- │       │         │         │          │         │
- │       │         │ Update  │          │         │
- │       │         │ tour    │          │         │
- │       │         │ rating  │          │         │
- │       │         ├──────────────────►│         │
- │       │         │         │          │         │
- │       │         │ Notify  │          │         │
- │       │         │ admin   │          │         │
- │       │         ├────────────────────────────►│
- │       │         │         │          │         │
- │       │◄────────┤         │          │         │
- │       │ 201     │         │          │         │
- │       │ Created │         │          │         │
- │◄──────┤         │         │          │         │
- │ Review│         │         │          │         │
- │ pending         │         │          │         │
- │       │         │         │          │         │
+```mermaid
+sequenceDiagram
+    actor User
+    participant Frontend
+    participant Backend
+    participant DB
+    participant NotifSvc
+    
+    User->>Frontend: Write review
+    Frontend->>Backend: POST /reviews
+    Backend->>Backend: Validate booking completed
+    Backend->>DB: Create review
+    Backend->>DB: Update tour rating
+    Backend->>NotifSvc: Notify admin
+    Backend-->>Frontend: 201 Created
+    Frontend-->>User: Review pending
 ```
 
 ---
